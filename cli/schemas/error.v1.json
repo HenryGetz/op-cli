@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://op-cli.local/schemas/error.v1.json",
+  "title": "omni error object",
+  "type": "object",
+  "required": [
+    "code",
+    "type",
+    "message",
+    "hint",
+    "retryable"
+  ],
+  "properties": {
+    "code": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "type": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "hint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "retryable": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

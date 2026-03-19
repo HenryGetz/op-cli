@@ -203,6 +203,7 @@ def run_check_command(
         "status": "success",
         "result": result,
         "error": None,
+        "warnings": [],
         "summary": {
             "total": len(selected_assertions),
             "passed": passed,

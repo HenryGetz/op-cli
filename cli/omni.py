@@ -32,6 +32,15 @@ from resolution import EDGE_CHOICES, ResolutionError, resolve_reference_spec, re
 
 CLI_VERSION = "1.0.0"
 SCHEMA_VERSION = "1.1"
+SCHEMA_RELATIVE_PATHS: dict[str, str] = {
+    "parse": "cli/schemas/parse.v1.json",
+    "measure": "cli/schemas/measure.v1.json",
+    "crop": "cli/schemas/crop.v1.json",
+    "diff": "cli/schemas/diff.v1.json",
+    "info": "cli/schemas/info.v1.json",
+    "check": "cli/schemas/check.v1.json",
+    "overlay": "cli/schemas/overlay.v1.json",
+}
 DEFAULT_BOX_THRESHOLD = 0.05
 DEFAULT_OCR_TEXT_THRESHOLD = 0.8
 DEFAULT_IOU_THRESHOLD = 0.7
@@ -327,6 +336,7 @@ def _finalize_payload(
     payload["command"] = response_context.command
     payload["request_id"] = response_context.request_id
     payload["timestamp_utc"] = response_context.timestamp_utc
+    payload.setdefault("warnings", [])
     return payload
 
 
@@ -373,6 +383,20 @@ def _config_sha256(project_config: ProjectConfig | None) -> str | None:
     if project_config is None:
         return None
     return _sha256_file(project_config.path)
+
+
+def _schema_path_for_command(repo_root: Path, command: str) -> Path:
+    relative = SCHEMA_RELATIVE_PATHS.get(command)
+    if relative is None:
+        raise UserInputError(
+            f"--schema is not supported for command '{command}'."
+        )
+    schema_path = (repo_root / relative).resolve()
+    if not schema_path.exists():
+        raise ProcessingError(
+            f"Schema file not found for '{command}': {schema_path}"
+        )
+    return schema_path
 
 
 def _error_hint(exc: Exception) -> str | None:
@@ -1517,6 +1541,11 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         help="Print CLI version and OmniParser version, then exit.",
     )
     parser.add_argument(
+        "--schema",
+        action="store_true",
+        help="Print JSON schema path for the selected subcommand and exit.",
+    )
+    parser.add_argument(
         "--model-dir",
         default=str(_default_model_dir(repo_root)),
         help=f"Override model directory (default: {_default_model_dir(repo_root)}).",
@@ -1581,6 +1610,12 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         command_parser.add_argument(
             "--device",
             choices=["cpu", "cuda"],
+            default=argparse.SUPPRESS,
+            help=argparse.SUPPRESS,
+        )
+        command_parser.add_argument(
+            "--schema",
+            action="store_true",
             default=argparse.SUPPRESS,
             help=argparse.SUPPRESS,
         )
@@ -1812,6 +1847,52 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
 
 def main(argv: list[str] | None = None) -> int:
     repo_root = Path(__file__).resolve().parents[1]
+    raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
+
+    if "--schema" in raw_argv:
+        command_token = next(
+            (
+                token
+                for token in raw_argv
+                if not token.startswith("-") and token in SCHEMA_RELATIVE_PATHS
+            ),
+            None,
+        )
+        if command_token is None:
+            schema_flag_idx = raw_argv.index("--schema")
+            if (schema_flag_idx + 1) < len(raw_argv):
+                candidate = raw_argv[schema_flag_idx + 1]
+                if candidate in SCHEMA_RELATIVE_PATHS:
+                    command_token = candidate
+
+        if command_token is not None:
+            response_context = ResponseContext(
+                command=command_token,
+                request_id=_new_request_id(),
+                timestamp_utc=_utc_timestamp(),
+            )
+            schema_path = _schema_path_for_command(repo_root, command_token)
+            payload = {
+                "status": "success",
+                "error": None,
+                "warnings": [],
+                "schema": {
+                    "command": command_token,
+                    "schema_version": SCHEMA_VERSION,
+                    "path": str(schema_path),
+                },
+                "meta": {
+                    "command": command_token,
+                    "request_id": response_context.request_id,
+                    "timestamp_utc": response_context.timestamp_utc,
+                    "processing_time_ms": 0,
+                    "omniparser_version": _omniparser_version(repo_root),
+                    "cli_version": CLI_VERSION,
+                },
+            }
+            _write_json_stdout(payload, response_context=response_context)
+            return 0
+
     parser, subparser_map = _build_parser(repo_root)
 
     try:
@@ -1834,6 +1915,34 @@ def main(argv: list[str] | None = None) -> int:
             subparser_map[args.help_command].print_help()
         else:
             parser.print_help()
+        return 0
+
+    if args.schema:
+        response_context = ResponseContext(
+            command=str(args.command),
+            request_id=_new_request_id(),
+            timestamp_utc=_utc_timestamp(),
+        )
+        schema_path = _schema_path_for_command(repo_root, str(args.command))
+        payload = {
+            "status": "success",
+            "error": None,
+            "warnings": [],
+            "schema": {
+                "command": str(args.command),
+                "schema_version": SCHEMA_VERSION,
+                "path": str(schema_path),
+            },
+            "meta": {
+                "command": str(args.command),
+                "request_id": response_context.request_id,
+                "timestamp_utc": response_context.timestamp_utc,
+                "processing_time_ms": 0,
+                "omniparser_version": omniparser_version,
+                "cli_version": CLI_VERSION,
+            },
+        }
+        _write_json_stdout(payload, response_context=response_context)
         return 0
 
     if hasattr(args, "format") and args.json:

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://op-cli.local/schemas/overlay.v1.json",
+  "title": "omni overlay response",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "command",
+    "request_id",
+    "timestamp_utc",
+    "status",
+    "error",
+    "warnings",
+    "meta",
+    "output_path",
+    "dimensions",
+    "ref_elements",
+    "test_elements"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.1"
+    },
+    "command": {
+      "type": "string",
+      "const": "overlay"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error"
+      ]
+    },
+    "error": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "command",
+        "request_id",
+        "timestamp_utc",
+        "image_path",
+        "image_width",
+        "image_height",
+        "processing_time_ms",
+        "omniparser_version",
+        "cli_version"
+      ],
+      "additionalProperties": true
+    },
+    "output_path": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "object",
+      "required": [
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "ref_elements": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "test_elements": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": true
+}

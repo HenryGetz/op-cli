@@ -11,6 +11,7 @@
     "status",
     "result",
     "error",
+    "warnings",
     "summary",
     "image",
     "config",
@@ -53,6 +54,12 @@
         "object",
         "null"
       ]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "summary": {
       "type": "object",

@@ -42,6 +42,9 @@ omni check screenshot.png --quiet
 
 # Overlay comparison
 omni overlay before.png after.png -o /tmp/overlay.png --bbox-ref --bbox-test
+
+# Print schema path for a command
+omni parse --schema
 ```
 
 ## Commands
@@ -62,6 +65,7 @@ omni overlay before.png after.png -o /tmp/overlay.png --bbox-ref --bbox-test
 - `--quiet` - suppress stderr logs
 - `--no-color` - plain/log-safe output mode
 - `--version` - print CLI + OmniParser version
+- `--schema` - print JSON schema path for the selected subcommand
 - `--model-dir <path>` - override model path
 - `--config <path>` - explicit `.omni.json` path (overrides discovery)
 - `--device cpu|cuda` - inference device (default `cpu`)
@@ -195,6 +199,7 @@ omni check <image> [--config <path>] [--only <id,id,...>] [--skip <id,id,...>] [
   "status": "success",
   "result": "pass|fail",
   "error": null,
+  "warnings": [],
   "summary": {
     "total": 6,
     "passed": 4,
@@ -273,6 +278,7 @@ For standard commands (`parse|measure|crop|diff|info|check|overlay`), top-level 
 - `timestamp_utc`: UTC timestamp in RFC 3339 format
 - `status`: `success|error`
 - `error`: `null` on success, error object on failure
+- `warnings`: array of non-fatal messages (empty when none)
 - `meta`: includes `image_path`, `image_width`, `image_height`, `processing_time_ms`, `omniparser_version`, `cli_version`
 
 `meta` additionally includes traceability and reproducibility fields:
@@ -292,7 +298,17 @@ Error payloads include machine-actionable fields:
 Canonical JSON schema files are provided in `cli/schemas/`:
 
 - `cli/schemas/parse.v1.json`
+- `cli/schemas/measure.v1.json`
+- `cli/schemas/crop.v1.json`
+- `cli/schemas/diff.v1.json`
+- `cli/schemas/info.v1.json`
 - `cli/schemas/check.v1.json`
+- `cli/schemas/overlay.v1.json`
+- `cli/schemas/error.v1.json`
+
+Contract smoke test helper:
+
+- `cli/tests/contract_smoke.py` (run with `OMNI_TEST_IMAGE=/abs/path/image.png`)
 
 ## Exit Codes (General)
 

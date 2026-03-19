@@ -10,6 +10,7 @@
     "timestamp_utc",
     "status",
     "error",
+    "warnings",
     "meta",
     "image_width",
     "image_height",
@@ -44,6 +45,12 @@
         "object",
         "null"
       ]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "meta": {
       "type": "object",

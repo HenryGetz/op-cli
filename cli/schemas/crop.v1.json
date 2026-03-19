@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://op-cli.local/schemas/crop.v1.json",
+  "title": "omni crop response",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "command",
+    "request_id",
+    "timestamp_utc",
+    "status",
+    "error",
+    "warnings",
+    "meta",
+    "crop"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.1"
+    },
+    "command": {
+      "type": "string",
+      "const": "crop"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error"
+      ]
+    },
+    "error": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "command",
+        "request_id",
+        "timestamp_utc",
+        "image_path",
+        "image_width",
+        "image_height",
+        "processing_time_ms",
+        "omniparser_version",
+        "cli_version"
+      ],
+      "additionalProperties": true
+    },
+    "crop": {
+      "type": "object",
+      "required": [
+        "region",
+        "output_path",
+        "output_width",
+        "output_height"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
