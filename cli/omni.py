@@ -399,6 +399,13 @@ def _schema_path_for_command(repo_root: Path, command: str) -> Path:
     return schema_path
 
 
+def _guess_command_from_argv(raw_argv: list[str]) -> str:
+    for token in raw_argv:
+        if token in SCHEMA_RELATIVE_PATHS:
+            return token
+    return "global"
+
+
 def _error_hint(exc: Exception) -> str | None:
     if isinstance(exc, FileMissingError):
         return "Verify the file path is absolute or relative to the current directory and that it exists."
@@ -1848,6 +1855,7 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
 def main(argv: list[str] | None = None) -> int:
     repo_root = Path(__file__).resolve().parents[1]
     raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
+    omniparser_version = _omniparser_version(repo_root)
 
     if "--schema" in raw_argv:
         command_token = next(
@@ -1898,13 +1906,35 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = parser.parse_args(argv)
     except UserInputError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        print("Run `omni --help` for usage.", file=sys.stderr)
+        command = _guess_command_from_argv(raw_argv)
+        response_context = ResponseContext(
+            command=command,
+            request_id=_new_request_id(),
+            timestamp_utc=_utc_timestamp(),
+        )
+        if "--quiet" not in raw_argv:
+            print(f"Error: {exc}", file=sys.stderr)
+            print("Run `omni --help` for usage.", file=sys.stderr)
+        _output_error_json(
+            response_context=response_context,
+            message=str(exc),
+            exit_code=1,
+            error_type="UserInputError",
+            hint="Run the command with --help and provide the required arguments.",
+            retryable=False,
+            context_meta={
+                "command": command,
+                "request_id": response_context.request_id,
+                "timestamp_utc": response_context.timestamp_utc,
+                "processing_time_ms": 0,
+                "omniparser_version": omniparser_version,
+                "cli_version": CLI_VERSION,
+            },
+        )
         return 1
 
     ctx = CLIContext(verbose=bool(args.verbose), quiet=bool(args.quiet), no_color=bool(args.no_color))
     logger = Console(ctx)
-    omniparser_version = _omniparser_version(repo_root)
 
     if args.version:
         print(f"omni {CLI_VERSION} (omniparser {omniparser_version})")
