@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import argparse
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,17 @@ class OverlayCommandError(Exception):
     """Invalid overlay command usage."""
 
     exit_code = 1
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 _DEFAULT_REF_COLOR = "#FF4444"
@@ -151,10 +163,14 @@ def run_overlay_command(
     image1_path: Path,
     image2_path: Path,
     project_config: ProjectConfig | None,
+    response_context: Any,
+    config_sha256: str | None,
     meta_builder: Any,
     cli_version: str,
 ) -> tuple[dict[str, Any], int]:
     started_ms = time.perf_counter() * 1000.0
+    image1_sha256 = _sha256_file(image1_path)
+    image2_sha256 = _sha256_file(image2_path)
     if args.opacity < 0.0 or args.opacity > 1.0:
         raise OverlayCommandError(f"--opacity must be in [0,1], got {args.opacity}")
 
@@ -229,6 +245,7 @@ def run_overlay_command(
         "ref_elements": ref_elements,
         "test_elements": test_elements,
         "meta": meta_builder(
+            response_context=response_context,
             image_path=str(image1_path),
             image_width=blended.size[0],
             image_height=blended.size[1],
@@ -242,6 +259,9 @@ def run_overlay_command(
                 "draw_regions": bool(args.draw_regions),
                 "regions_drawn": regions_drawn,
                 "config_path": str(project_config.path) if project_config else None,
+                "image_sha256": image1_sha256,
+                "image_sha256_2": image2_sha256,
+                "config_sha256": config_sha256,
             },
         ),
     }

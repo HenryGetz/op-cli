@@ -188,7 +188,13 @@ omni check <image> [--config <path>] [--only <id,id,...>] [--skip <id,id,...>] [
 
 ```json
 {
-  "status": "pass|fail",
+  "schema_version": "1.1",
+  "command": "check",
+  "request_id": "5f7f7f2b45f84f1ab8f17d7fc711f51e",
+  "timestamp_utc": "2026-03-19T22:12:34Z",
+  "status": "success",
+  "result": "pass|fail",
+  "error": null,
   "summary": {
     "total": 6,
     "passed": 4,
@@ -259,11 +265,34 @@ omni overlay <image1> <image2> -o <output_path> [--opacity <float>] [--bbox-ref 
 
 ## JSON Output Contract (General)
 
-For standard commands (`parse|measure|crop|diff|info|overlay`), top-level JSON includes:
+For standard commands (`parse|measure|crop|diff|info|check|overlay`), top-level JSON includes:
 
+- `schema_version`: current response schema version (`1.1`)
+- `command`: subcommand that produced this response
+- `request_id`: unique ID for this invocation (stable across stdout + stderr references)
+- `timestamp_utc`: UTC timestamp in RFC 3339 format
 - `status`: `success|error`
 - `error`: `null` on success, error object on failure
 - `meta`: includes `image_path`, `image_width`, `image_height`, `processing_time_ms`, `omniparser_version`, `cli_version`
+
+`meta` additionally includes traceability and reproducibility fields:
+
+- `command`, `request_id`, `timestamp_utc`
+- `image_sha256` (and `image_sha256_2` when two images are used)
+- `config_sha256` when a project config is loaded
+
+Error payloads include machine-actionable fields:
+
+- `error.code`
+- `error.type`
+- `error.message`
+- `error.hint`
+- `error.retryable`
+
+Canonical JSON schema files are provided in `cli/schemas/`:
+
+- `cli/schemas/parse.v1.json`
+- `cli/schemas/check.v1.json`
 
 ## Exit Codes (General)
 
@@ -282,8 +311,8 @@ Recommended agent workflow:
 2. Trigger screenshot capture (Playwright, Puppeteer, etc.)
 3. Run: `omni check screenshot.png --quiet`
 4. Parse stdout JSON
-5. If `status == "pass"`: done
-6. If `status == "fail"`: read `results[].details` for each failed assertion
+5. If `status == "success"` and `result == "pass"`: done
+6. If `status == "success"` and `result == "fail"`: read `results[].details` for each failed assertion
 7. `details` contains exact pixel measurements and deltas; use these to calculate CSS adjustments
 8. Apply fixes and return to step 1
 
@@ -299,4 +328,3 @@ Additional recommendations:
 - this OmniParser build is effectively CPU-bound in this environment
 - inference can be slow on CPU-only hardware
 - supported input formats: `png`, `jpg/jpeg`, `bmp`, `webp`, `tif/tiff`
-

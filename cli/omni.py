@@ -16,7 +16,9 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +31,7 @@ from resolution import EDGE_CHOICES, ResolutionError, resolve_reference_spec, re
 
 
 CLI_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1"
 DEFAULT_BOX_THRESHOLD = 0.05
 DEFAULT_OCR_TEXT_THRESHOLD = 0.8
 DEFAULT_IOU_THRESHOLD = 0.7
@@ -80,6 +83,13 @@ class CLIContext:
     no_color: bool
 
 
+@dataclass(frozen=True)
+class ResponseContext:
+    command: str
+    request_id: str
+    timestamp_utc: str
+
+
 class Console:
     def __init__(self, ctx: CLIContext) -> None:
         self.ctx = ctx
@@ -103,6 +113,14 @@ class Console:
 
 def _now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _new_request_id() -> str:
+    return uuid.uuid4().hex
 
 
 def _perf_ms() -> float:
@@ -300,8 +318,27 @@ def _load_image_validated(path: Path) -> Image.Image:
     return image
 
 
-def _write_json_stdout(payload: dict[str, Any]) -> None:
-    print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+def _finalize_payload(
+    payload: dict[str, Any],
+    *,
+    response_context: ResponseContext,
+) -> dict[str, Any]:
+    payload["schema_version"] = SCHEMA_VERSION
+    payload["command"] = response_context.command
+    payload["request_id"] = response_context.request_id
+    payload["timestamp_utc"] = response_context.timestamp_utc
+    return payload
+
+
+def _write_json_stdout(
+    payload: dict[str, Any],
+    *,
+    response_context: ResponseContext | None = None,
+) -> None:
+    payload_to_print = dict(payload)
+    if response_context is not None:
+        payload_to_print = _finalize_payload(payload_to_print, response_context=response_context)
+    print(json.dumps(payload_to_print, ensure_ascii=False, sort_keys=True))
 
 
 def _omniparser_version(repo_root: Path) -> str:
@@ -332,8 +369,43 @@ def _default_model_dir(repo_root: Path) -> Path:
     return (repo_root / "weights").resolve()
 
 
+def _config_sha256(project_config: ProjectConfig | None) -> str | None:
+    if project_config is None:
+        return None
+    return _sha256_file(project_config.path)
+
+
+def _error_hint(exc: Exception) -> str | None:
+    if isinstance(exc, FileMissingError):
+        return "Verify the file path is absolute or relative to the current directory and that it exists."
+    if isinstance(exc, ModelNotFoundError):
+        return "Download model weights into the OmniParser weights directory or set OMNI_MODEL_DIR."
+    if isinstance(exc, OmniConfigError):
+        return "Fix .omni.json validation errors, or pass --config <path> to a valid config file."
+    if isinstance(exc, ResolutionError):
+        return "Use coordinates (x,y), element:<index>, a fuzzy label, or region:<name> with a loaded config."
+    if isinstance(exc, UserInputError):
+        return "Run the subcommand with --help and correct the provided arguments."
+    if isinstance(exc, CheckCommandError):
+        return "Validate assertion IDs passed to --only/--skip and ensure referenced regions exist."
+    if isinstance(exc, OverlayCommandError):
+        return "Ensure both images exist, have the same dimensions, and color values use #RRGGBB format."
+    if isinstance(exc, ProcessingError):
+        return "Retry once. If it persists, run with --verbose and inspect model availability and logs."
+    return "Retry with --verbose and inspect stderr for additional context."
+
+
+def _error_retryable(exc: Exception) -> bool:
+    if isinstance(exc, (FileMissingError, UserInputError, ResolutionError, OmniConfigError, CheckCommandError, OverlayCommandError)):
+        return False
+    if isinstance(exc, ModelNotFoundError):
+        return False
+    return True
+
+
 def _meta(
     *,
+    response_context: ResponseContext,
     image_path: str,
     image_width: int,
     image_height: int,
@@ -344,6 +416,9 @@ def _meta(
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
+        "command": response_context.command,
+        "request_id": response_context.request_id,
+        "timestamp_utc": response_context.timestamp_utc,
         "image_path": image_path,
         "image_width": image_width,
         "image_height": image_height,
@@ -884,19 +959,26 @@ def _layout_summary(elements: list[dict[str, Any]], image_width: int, image_heig
 
 def _output_error_json(
     *,
+    response_context: ResponseContext,
     message: str,
     exit_code: int,
+    error_type: str,
+    hint: str | None,
+    retryable: bool,
     context_meta: dict[str, Any] | None,
 ) -> None:
     payload = {
         "status": "error",
         "error": {
             "code": exit_code,
+            "type": error_type,
             "message": message,
+            "hint": hint,
+            "retryable": retryable,
         },
         "meta": context_meta or {},
     }
-    _write_json_stdout(payload)
+    _write_json_stdout(payload, response_context=response_context)
 
 
 def _cmd_parse(
@@ -904,9 +986,12 @@ def _cmd_parse(
     runtime: OmniRuntime,
     logger: Console,
     project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
 ) -> int:
     start_ms = _perf_ms()
     image_path = _resolve_image_path(args.image)
+    image_sha256 = _sha256_file(image_path)
 
     parsed_data, cache_hit, logs = runtime.parse_image(
         image_path=image_path,
@@ -929,6 +1014,7 @@ def _cmd_parse(
             "status": "success",
             "error": None,
             "meta": _meta(
+                response_context=response_context,
                 image_path=str(image_path),
                 image_width=int(parsed_data["image_width"]),
                 image_height=int(parsed_data["image_height"]),
@@ -940,6 +1026,8 @@ def _cmd_parse(
                     "box_threshold": args.confidence_threshold,
                     "device": runtime.effective_device,
                     "config_path": str(project_config.path) if project_config else None,
+                    "image_sha256": image_sha256,
+                    "config_sha256": config_sha256,
                 },
             ),
             "image_width": int(parsed_data["image_width"]),
@@ -966,7 +1054,7 @@ def _cmd_parse(
                 "ocr": parsed_data["raw_ocr"],
                 "elements_with_ratio": parsed_data["elements"],
             }
-        _write_json_stdout(payload)
+        _write_json_stdout(payload, response_context=response_context)
         return 0
 
     if args.raw:
@@ -985,9 +1073,12 @@ def _cmd_measure(
     runtime: OmniRuntime,
     logger: Console,
     project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
 ) -> int:
     start_ms = _perf_ms()
     image_path = _resolve_image_path(args.image)
+    image_sha256 = _sha256_file(image_path)
 
     parsed_data, cache_hit, logs = runtime.parse_image(
         image_path=image_path,
@@ -1039,6 +1130,7 @@ def _cmd_measure(
         "status": "success",
         "error": None,
         "meta": _meta(
+            response_context=response_context,
             image_path=str(image_path),
             image_width=int(parsed_data["image_width"]),
             image_height=int(parsed_data["image_height"]),
@@ -1051,6 +1143,8 @@ def _cmd_measure(
                 "edge": args.edge,
                 "axis": args.axis,
                 "config_path": str(project_config.path) if project_config else None,
+                "image_sha256": image_sha256,
+                "config_sha256": config_sha256,
             },
         ),
         "measurement": {
@@ -1064,7 +1158,7 @@ def _cmd_measure(
             "selected_distance_px": selected_distance,
         },
     }
-    _write_json_stdout(payload)
+    _write_json_stdout(payload, response_context=response_context)
     return 0
 
 
@@ -1073,9 +1167,12 @@ def _cmd_crop(
     runtime: OmniRuntime,
     logger: Console,
     project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
 ) -> int:
     start_ms = _perf_ms()
     image_path = _resolve_image_path(args.image)
+    image_sha256 = _sha256_file(image_path)
     image = _load_image_validated(image_path).convert("RGB")
     image_width, image_height = image.size
 
@@ -1162,6 +1259,7 @@ def _cmd_crop(
         "status": "success",
         "error": None,
         "meta": _meta(
+            response_context=response_context,
             image_path=str(image_path),
             image_width=image_width,
             image_height=image_height,
@@ -1173,6 +1271,8 @@ def _cmd_crop(
                 "padding": args.padding,
                 "config_path": str(project_config.path) if project_config else None,
                 "region_name": args.region_name,
+                "image_sha256": image_sha256,
+                "config_sha256": config_sha256,
             },
         ),
         "crop": {
@@ -1182,7 +1282,7 @@ def _cmd_crop(
             "output_height": cropped.size[1],
         },
     }
-    _write_json_stdout(payload)
+    _write_json_stdout(payload, response_context=response_context)
     return 0
 
 
@@ -1191,10 +1291,14 @@ def _cmd_diff(
     runtime: OmniRuntime,
     logger: Console,
     project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
 ) -> int:
     start_ms = _perf_ms()
     image1_path = _resolve_image_path(args.image1)
     image2_path = _resolve_image_path(args.image2)
+    image1_sha256 = _sha256_file(image1_path)
+    image2_sha256 = _sha256_file(image2_path)
 
     parsed1, cache_hit1, logs1 = runtime.parse_image(
         image_path=image1_path,
@@ -1261,6 +1365,7 @@ def _cmd_diff(
         "status": "success",
         "error": None,
         "meta": _meta(
+            response_context=response_context,
             image_path=str(image1_path),
             image_width=int(parsed1["image_width"]),
             image_height=int(parsed1["image_height"]),
@@ -1275,6 +1380,9 @@ def _cmd_diff(
                 "tolerance_px": args.tolerance,
                 "focus_region": focus_region,
                 "config_path": str(project_config.path) if project_config else None,
+                "image_sha256": image1_sha256,
+                "image_sha256_2": image2_sha256,
+                "config_sha256": config_sha256,
             },
         ),
         "diff": {
@@ -1287,7 +1395,7 @@ def _cmd_diff(
             "save_diff_path": str(saved_diff_path) if saved_diff_path else None,
         },
     }
-    _write_json_stdout(payload)
+    _write_json_stdout(payload, response_context=response_context)
     return 0
 
 
@@ -1296,9 +1404,12 @@ def _cmd_info(
     runtime: OmniRuntime,
     logger: Console,
     project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
 ) -> int:
     start_ms = _perf_ms()
     image_path = _resolve_image_path(args.image)
+    image_sha256 = _sha256_file(image_path)
     image = _load_image_validated(image_path)
     image_width, image_height = image.size
 
@@ -1320,6 +1431,7 @@ def _cmd_info(
         "status": "success",
         "error": None,
         "meta": _meta(
+            response_context=response_context,
             image_path=str(image_path),
             image_width=image_width,
             image_height=image_height,
@@ -1332,6 +1444,8 @@ def _cmd_info(
                 "mode": image.mode,
                 "dpi": list(image.info.get("dpi", (None, None))),
                 "config_path": str(project_config.path) if project_config else None,
+                "image_sha256": image_sha256,
+                "config_sha256": config_sha256,
             },
         ),
         "info": {
@@ -1348,7 +1462,7 @@ def _cmd_info(
             "layout_summary": _layout_summary(elements, image_width, image_height),
         },
     }
-    _write_json_stdout(payload)
+    _write_json_stdout(payload, response_context=response_context)
     return 0
 
 
@@ -1725,12 +1839,18 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(args, "format") and args.json:
         args.format = "json"
     command_start = _perf_ms()
+    response_context = ResponseContext(
+        command=str(args.command),
+        request_id=_new_request_id(),
+        timestamp_utc=_utc_timestamp(),
+    )
     try:
         config_manager = ProjectConfigManager(
             cwd=Path.cwd(),
             explicit_path=getattr(args, "config", None),
         )
         project_config = config_manager.get(required=(args.command == "check"))
+        config_sha256 = _config_sha256(project_config)
 
         model_dir = Path(args.model_dir).expanduser().resolve()
         runtime = OmniRuntime(
@@ -1742,15 +1862,15 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         if args.command == "parse":
-            return _cmd_parse(args, runtime, logger, project_config)
+            return _cmd_parse(args, runtime, logger, project_config, response_context, config_sha256)
         if args.command == "measure":
-            return _cmd_measure(args, runtime, logger, project_config)
+            return _cmd_measure(args, runtime, logger, project_config, response_context, config_sha256)
         if args.command == "crop":
-            return _cmd_crop(args, runtime, logger, project_config)
+            return _cmd_crop(args, runtime, logger, project_config, response_context, config_sha256)
         if args.command == "diff":
-            return _cmd_diff(args, runtime, logger, project_config)
+            return _cmd_diff(args, runtime, logger, project_config, response_context, config_sha256)
         if args.command == "info":
-            return _cmd_info(args, runtime, logger, project_config)
+            return _cmd_info(args, runtime, logger, project_config, response_context, config_sha256)
         if args.command == "check":
             image_path = _resolve_image_path(args.image)
             payload, exit_code = run_check_command(
@@ -1758,10 +1878,12 @@ def main(argv: list[str] | None = None) -> int:
                 runtime=runtime,
                 project_config=project_config,
                 image_path=image_path,
+                response_context=response_context,
+                config_sha256=config_sha256,
                 meta_builder=_meta,
                 cli_version=CLI_VERSION,
             )
-            _write_json_stdout(payload)
+            _write_json_stdout(payload, response_context=response_context)
             return exit_code
         if args.command == "overlay":
             image1_path = _resolve_image_path(args.image1)
@@ -1772,10 +1894,12 @@ def main(argv: list[str] | None = None) -> int:
                 image1_path=image1_path,
                 image2_path=image2_path,
                 project_config=project_config,
+                response_context=response_context,
+                config_sha256=config_sha256,
                 meta_builder=_meta,
                 cli_version=CLI_VERSION,
             )
-            _write_json_stdout(payload)
+            _write_json_stdout(payload, response_context=response_context)
             return exit_code
         raise UserInputError(f"Unknown command: {args.command}")
     except (
@@ -1792,7 +1916,13 @@ def main(argv: list[str] | None = None) -> int:
             "processing_time_ms": processing_time_ms,
             "omniparser_version": omniparser_version,
             "cli_version": CLI_VERSION,
+            "command": response_context.command,
+            "request_id": response_context.request_id,
+            "timestamp_utc": response_context.timestamp_utc,
         }
+        explicit_config = getattr(args, "config", None)
+        if explicit_config:
+            error_meta["config_path"] = str(Path(explicit_config).expanduser().resolve())
         if getattr(args, "image", None):
             try:
                 image_path = str(Path(getattr(args, "image")).expanduser().resolve())
@@ -1801,32 +1931,50 @@ def main(argv: list[str] | None = None) -> int:
             error_meta["image_path"] = image_path
 
         _output_error_json(
+            response_context=response_context,
             message=str(exc),
             exit_code=exc.exit_code,
+            error_type=exc.__class__.__name__,
+            hint=_error_hint(exc),
+            retryable=_error_retryable(exc),
             context_meta=error_meta,
         )
         return exc.exit_code
     except KeyboardInterrupt:
         logger.error("Interrupted by user.")
         _output_error_json(
+            response_context=response_context,
             message="Interrupted by user.",
             exit_code=2,
+            error_type="KeyboardInterrupt",
+            hint="Retry the command. If interruption is recurring, run with --quiet in automation.",
+            retryable=True,
             context_meta={
                 "processing_time_ms": int(round(_perf_ms() - command_start)),
                 "omniparser_version": omniparser_version,
                 "cli_version": CLI_VERSION,
+                "command": response_context.command,
+                "request_id": response_context.request_id,
+                "timestamp_utc": response_context.timestamp_utc,
             },
         )
         return 2
     except Exception as exc:
         logger.error(f"Unexpected processing failure: {exc}")
         _output_error_json(
+            response_context=response_context,
             message=f"Unexpected processing failure: {exc}",
             exit_code=2,
+            error_type=exc.__class__.__name__,
+            hint=_error_hint(exc),
+            retryable=True,
             context_meta={
                 "processing_time_ms": int(round(_perf_ms() - command_start)),
                 "omniparser_version": omniparser_version,
                 "cli_version": CLI_VERSION,
+                "command": response_context.command,
+                "request_id": response_context.request_id,
+                "timestamp_utc": response_context.timestamp_utc,
             },
         )
         return 2

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 import argparse
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,17 @@ class CheckCommandError(Exception):
     """Input/runtime error for check command."""
 
     exit_code = 1
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def add_check_subparser(
@@ -76,6 +88,8 @@ def run_check_command(
     runtime: Any,
     project_config: ProjectConfig | None,
     image_path: Path,
+    response_context: Any,
+    config_sha256: str | None,
     meta_builder: Any,
     cli_version: str,
 ) -> tuple[dict[str, Any], int]:
@@ -85,6 +99,8 @@ def run_check_command(
         )
 
     started_ms = time.perf_counter() * 1000.0
+    image_sha256 = _sha256_file(image_path)
+
     all_assertions = list(project_config.assertions)
     all_ids = {str(item["id"]) for item in all_assertions}
     only_ids = _split_ids(args.only)
@@ -176,11 +192,17 @@ def run_check_command(
                 }
             )
 
-    status = "pass" if failed == 0 else "fail"
+    result = "pass" if failed == 0 else "fail"
     processing_time_ms = int(round((time.perf_counter() * 1000.0) - started_ms))
 
     payload = {
-        "status": status,
+        "schema_version": "1.1",
+        "command": str(response_context.command),
+        "request_id": str(response_context.request_id),
+        "timestamp_utc": str(response_context.timestamp_utc),
+        "status": "success",
+        "result": result,
+        "error": None,
         "summary": {
             "total": len(selected_assertions),
             "passed": passed,
@@ -191,6 +213,7 @@ def run_check_command(
         "config": str(project_config.path),
         "results": results,
         "meta": meta_builder(
+            response_context=response_context,
             image_path=str(image_path),
             image_width=image_width,
             image_height=image_height,
@@ -202,6 +225,8 @@ def run_check_command(
                 "config_path": str(project_config.path),
                 "elements_detected": len(elements),
                 "parse_required": parse_needed,
+                "image_sha256": image_sha256,
+                "config_sha256": config_sha256,
             },
         ),
     }
@@ -212,5 +237,5 @@ def run_check_command(
         output_path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
         payload["meta"]["report_path"] = str(output_path)
 
-    exit_code = 0 if status == "pass" else 4
+    exit_code = 0 if result == "pass" else 4
     return payload, exit_code

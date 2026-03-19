@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://op-cli.local/schemas/parse.v1.json",
+  "title": "omni parse response",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "command",
+    "request_id",
+    "timestamp_utc",
+    "status",
+    "error",
+    "meta",
+    "image_width",
+    "image_height",
+    "elements"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.1"
+    },
+    "command": {
+      "type": "string",
+      "const": "parse"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 8
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error"
+      ]
+    },
+    "error": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "command",
+        "request_id",
+        "timestamp_utc",
+        "image_path",
+        "image_width",
+        "image_height",
+        "processing_time_ms",
+        "omniparser_version",
+        "cli_version"
+      ],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "timestamp_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "image_path": {
+          "type": "string"
+        },
+        "image_width": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "image_height": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "processing_time_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omniparser_version": {
+          "type": "string"
+        },
+        "cli_version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "image_width": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "image_height": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "index",
+          "bbox",
+          "label",
+          "element_type",
+          "confidence",
+          "interactable"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "bbox": {
+            "type": "object",
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "label": {
+            "type": "string"
+          },
+          "element_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
+          },
+          "interactable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

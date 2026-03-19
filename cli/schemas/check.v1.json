@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://op-cli.local/schemas/check.v1.json",
+  "title": "omni check response",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "command",
+    "request_id",
+    "timestamp_utc",
+    "status",
+    "result",
+    "error",
+    "summary",
+    "image",
+    "config",
+    "results",
+    "meta"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.1"
+    },
+    "command": {
+      "type": "string",
+      "const": "check"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 8
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error"
+      ]
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "error": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total",
+        "passed",
+        "failed",
+        "skipped"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "image": {
+      "type": "string"
+    },
+    "config": {
+      "type": "string"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "details"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string"
+          },
+          "passed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "details": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "command",
+        "request_id",
+        "timestamp_utc",
+        "image_path",
+        "image_width",
+        "image_height",
+        "processing_time_ms",
+        "omniparser_version",
+        "cli_version"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
