@@ -40,6 +40,7 @@ class ProjectConfig:
     reference_image: Path | None
     viewport: dict[str, Any]
     regions: dict[str, dict[str, Any]]
+    targets: dict[str, dict[str, Any]]
     assertions: list[dict[str, Any]]
 
 
@@ -120,15 +121,73 @@ def _assert_region_exists(region_name: str, regions: dict[str, Any], path: str) 
 
 
 def _extract_region_ref(raw_ref: str) -> str | None:
-    if raw_ref.startswith("region:"):
-        return raw_ref.split(":", 1)[1].strip()
+    base_ref = raw_ref.split("|", 1)[0].strip()
+    if base_ref.startswith("region:"):
+        return base_ref.split(":", 1)[1].strip()
     return None
+
+
+def _extract_target_ref(raw_ref: str) -> str | None:
+    base_ref = raw_ref.split("|", 1)[0].strip()
+    if base_ref.startswith("target:"):
+        return base_ref.split(":", 1)[1].strip()
+    return None
+
+
+def _assert_target_exists(target_name: str, targets: dict[str, Any], path: str) -> None:
+    if target_name not in targets:
+        available = ", ".join(sorted(targets.keys())) or "<none>"
+        raise _fail(path, f"unknown target '{target_name}'. Available: {available}")
+
+
+def _normalize_target(name: str, raw: Any, path: str) -> dict[str, Any]:
+    if isinstance(raw, str):
+        ref = _require_string(raw, f"{path}.ref")
+        description = None
+    else:
+        raw_obj = _require_dict(raw, path)
+        ref = _require_string(raw_obj.get("ref"), f"{path}.ref")
+        description = raw_obj.get("description")
+        if description is not None:
+            description = _require_string(description, f"{path}.description", allow_empty=True)
+
+    return {
+        "name": name,
+        "ref": ref,
+        "description": description,
+    }
+
+
+def _validate_targets(
+    targets: dict[str, dict[str, Any]],
+    *,
+    regions: dict[str, dict[str, Any]],
+) -> None:
+    def _walk(target_name: str, seen: list[str]) -> None:
+        if target_name in seen:
+            cycle = " -> ".join(seen + [target_name])
+            raise _fail("targets", f"target reference cycle detected: {cycle}")
+
+        ref = str(targets[target_name]["ref"])
+        region_ref = _extract_region_ref(ref)
+        if region_ref is not None:
+            _assert_region_exists(region_ref, regions, f"targets.{target_name}.ref")
+            return
+
+        target_ref = _extract_target_ref(ref)
+        if target_ref is not None:
+            _assert_target_exists(target_ref, targets, f"targets.{target_name}.ref")
+            _walk(target_ref, seen + [target_name])
+
+    for target_name in targets:
+        _walk(target_name, [])
 
 
 def _validate_assertion(
     assertion: dict[str, Any],
     idx: int,
     regions: dict[str, dict[str, Any]],
+    targets: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     path = f"assertions[{idx}]"
     assertion_id = _require_string(assertion.get("id"), f"{path}.id")
@@ -161,6 +220,13 @@ def _validate_assertion(
             _assert_region_exists(from_region, regions, f"{path}.from.ref")
         if to_region is not None:
             _assert_region_exists(to_region, regions, f"{path}.to.ref")
+
+        from_target = _extract_target_ref(from_ref)
+        to_target = _extract_target_ref(to_ref)
+        if from_target is not None:
+            _assert_target_exists(from_target, targets, f"{path}.from.ref")
+        if to_target is not None:
+            _assert_target_exists(to_target, targets, f"{path}.to.ref")
 
         axis = _require_string(assertion.get("axis"), f"{path}.axis")
         if axis not in SUPPORTED_MEASUREMENT_AXES:
@@ -272,6 +338,21 @@ def load_project_config(config_path: Path) -> ProjectConfig:
             f"regions.{region_name}",
         )
 
+    raw_targets = data.get("targets", {})
+    if raw_targets is None:
+        raw_targets = {}
+    raw_targets = _require_dict(raw_targets, "targets")
+    normalized_targets: dict[str, dict[str, Any]] = {}
+    for target_name, target_raw in raw_targets.items():
+        if not isinstance(target_name, str) or not target_name.strip():
+            raise _fail("targets", "target names must be non-empty strings")
+        normalized_targets[target_name] = _normalize_target(
+            target_name,
+            target_raw,
+            f"targets.{target_name}",
+        )
+    _validate_targets(normalized_targets, regions=normalized_regions)
+
     raw_assertions = data.get("assertions", [])
     if raw_assertions is None:
         raw_assertions = []
@@ -283,6 +364,7 @@ def load_project_config(config_path: Path) -> ProjectConfig:
             _require_dict(raw_assertion, f"assertions[{idx}]"),
             idx,
             normalized_regions,
+            normalized_targets,
         )
         assertion_id = str(assertion["id"])
         if assertion_id in ids_seen:
@@ -298,6 +380,7 @@ def load_project_config(config_path: Path) -> ProjectConfig:
         reference_image=reference_image,
         viewport=viewport,
         regions=normalized_regions,
+        targets=normalized_targets,
         assertions=assertions,
     )
 
@@ -329,4 +412,3 @@ class ProjectConfigManager:
                 f"Config file required for this command. Provide --config <path> or create {CONFIG_FILENAME} in this directory tree."
             )
         return self._config
-

@@ -8,7 +8,7 @@ from typing import Any
 
 from PIL import Image
 
-from resolution import element_center, point_in_region, resolve_reference_spec
+from resolution import element_center, parse_coord_pair, point_in_region, resolve_reference_spec
 
 
 class AssertionEvaluationError(Exception):
@@ -44,24 +44,46 @@ def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
     return f"#{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
 
 
-def assertion_needs_parse(assertion: dict[str, Any]) -> bool:
+def _reference_needs_parse(
+    ref: str,
+    targets: dict[str, dict[str, Any]] | None,
+    seen: set[str] | None = None,
+) -> bool:
+    base_ref = ref.split("|", 1)[0].strip()
+    if base_ref.startswith("element:"):
+        return True
+    if base_ref.startswith("region:"):
+        return False
+    if parse_coord_pair(base_ref) is not None:
+        return False
+    if base_ref.startswith("target:"):
+        target_name = base_ref.split(":", 1)[1].strip()
+        if not target_name:
+            return True
+        if targets is None or target_name not in targets:
+            return True
+        active = set(seen or set())
+        if target_name in active:
+            return True
+        active.add(target_name)
+        target_ref = str(targets[target_name].get("ref", "")).strip()
+        if not target_ref:
+            return True
+        return _reference_needs_parse(target_ref, targets, active)
+    return True
+
+
+def assertion_needs_parse(
+    assertion: dict[str, Any],
+    targets: dict[str, dict[str, Any]] | None = None,
+) -> bool:
     assertion_type = assertion["type"]
     if assertion_type in {"element_count", "elements_in_region"}:
         return True
     if assertion_type == "measurement":
         from_ref = str(assertion["from"]["ref"])
         to_ref = str(assertion["to"]["ref"])
-        for ref in (from_ref, to_ref):
-            if ref.startswith("element:"):
-                return True
-            if ref.startswith("region:"):
-                continue
-            if "," in ref:
-                # raw x,y coordinate pair
-                continue
-            # fallback label matching requires parsed elements
-            return True
-        return False
+        return _reference_needs_parse(from_ref, targets) or _reference_needs_parse(to_ref, targets)
     return False
 
 
@@ -71,6 +93,7 @@ class AssertionContext:
     image_width: int
     image_height: int
     regions: dict[str, dict[str, Any]]
+    targets: dict[str, dict[str, Any]]
     elements: list[dict[str, Any]]
 
 
@@ -129,6 +152,7 @@ def evaluate_assertion(assertion: dict[str, Any], ctx: AssertionContext) -> dict
             edge=from_edge,
             role=f"assertion:{assertion_id}:from",
             regions=ctx.regions,
+            targets=ctx.targets,
         )
         to_resolved = resolve_reference_spec(
             spec=to_spec,
@@ -138,6 +162,7 @@ def evaluate_assertion(assertion: dict[str, Any], ctx: AssertionContext) -> dict
             edge=to_edge,
             role=f"assertion:{assertion_id}:to",
             regions=ctx.regions,
+            targets=ctx.targets,
         )
 
         fx = int(from_resolved["resolved_point"]["x"])
@@ -286,4 +311,3 @@ def evaluate_assertion(assertion: dict[str, Any], ctx: AssertionContext) -> dict
         }
 
     raise AssertionEvaluationError(f"Unhandled assertion type '{assertion_type}'")
-

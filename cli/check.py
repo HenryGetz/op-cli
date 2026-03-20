@@ -137,7 +137,10 @@ def run_check_command(
     ]
 
     evaluate_queue = [a for a in selected_assertions if a["id"] not in skip_ids]
-    parse_needed = any(assertion_needs_parse(assertion) for assertion in evaluate_queue)
+    parse_needed = any(
+        assertion_needs_parse(assertion, project_config.targets)
+        for assertion in evaluate_queue
+    )
 
     cache_hit = False
     elements: list[dict[str, Any]] = []
@@ -171,6 +174,7 @@ def run_check_command(
         image_width=image_width,
         image_height=image_height,
         regions=project_config.regions,
+        targets=project_config.targets,
         elements=elements,
     )
 

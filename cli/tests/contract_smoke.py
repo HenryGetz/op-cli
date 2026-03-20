@@ -63,6 +63,11 @@ def main() -> int:
                     "left": {"x": 0, "y": 0, "w": 100, "h": 100},
                     "right": {"x": 100, "y": 0, "w": 100, "h": 100},
                 },
+                "targets": {
+                    "left-rail": "region:left",
+                    "right-rail": "region:right",
+                    "probe": "label:*|side:right|near:120,50",
+                },
                 "assertions": [
                     {
                         "id": "region-width",
@@ -81,9 +86,9 @@ def main() -> int:
     checks = [
         ("parse", ["omni", "parse", str(image_path), "--quiet"]),
         ("debug", ["omni", "debug", str(image_path), "-o", str(work / "debug.png"), "--quiet"]),
-        ("locate", ["omni", "locate", str(image_path), "--query", "*|near:20,20", "--quiet"]),
-        ("match", ["omni", "match", str(image_path), str(image_path), "--query", "*|near:20,20", "--quiet"]),
-        ("measure", ["omni", "measure", str(image_path), "--from", "0,0", "--to", "10,0", "--quiet"]),
+        ("locate", ["omni", "locate", str(image_path), "--query", "target:probe", "--quiet"]),
+        ("match", ["omni", "match", str(image_path), str(image_path), "--query", "target:probe", "--anchor", "target:left-rail", "--quiet"]),
+        ("measure", ["omni", "measure", str(image_path), "--from", "target:left-rail", "--to", "target:right-rail", "--quiet"]),
         ("crop", ["omni", "crop", str(image_path), "--region", "0,0,20,20", "-o", str(work / "crop.png"), "--quiet"]),
         ("diff", ["omni", "diff", str(image_path), str(image_path), "--quiet"]),
         ("info", ["omni", "info", str(image_path), "--quiet"]),

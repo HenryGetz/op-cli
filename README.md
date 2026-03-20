@@ -112,6 +112,31 @@ Examples:
 
 These selectors work anywhere a reference string is accepted (`omni locate`, `omni measure --from/--to`, and `measurement` assertions in `.omni.json`).
 
+### Reusable targets
+
+Define named selectors once and reuse everywhere via `target:<name>`.
+
+Example:
+
+```json
+{
+  "targets": {
+    "primary-save": {
+      "ref": "label:save|side:right|near:1400,900",
+      "description": "Primary save action"
+    },
+    "left-rail": "region:sidebar"
+  }
+}
+```
+
+Then use them in commands and assertions:
+
+- `omni locate screenshot.png --query target:primary-save`
+- `omni measure screenshot.png --from target:left-rail --to target:primary-save`
+- `omni match before.png after.png --query target:primary-save --anchor target:left-rail`
+- `.omni.json` measurement assertions can use `from.ref`/`to.ref` as `target:<name>`
+
 ### Schema
 
 ```json
@@ -132,6 +157,12 @@ These selectors work anywhere a reference string is accepted (`omni locate`, `om
       "h": 1080,
       "description": "Left navigation sidebar"
     }
+  },
+  "targets": {
+    "primary-save": {
+      "ref": "label:save|side:right|near:1400,900"
+    },
+    "left-rail": "region:sidebar"
   },
   "assertions": [
     {
@@ -165,6 +196,8 @@ These selectors work anywhere a reference string is accepted (`omni locate`, `om
 - all numeric fields must be non-negative
 - assertion IDs must be unique
 - region references used by assertions must exist
+- target references used by assertions/targets must exist
+- target cycles are rejected at config-load time
 - relative `reference_image` resolves relative to config file directory
 
 On config validation failure, `omni` exits code `5` with a specific field-level error.
@@ -360,7 +393,7 @@ omni overlay <image1> <image2> -o <output_path> [--opacity <float>] [--bbox-ref 
 
 ## JSON Output Contract (General)
 
-For standard commands (`parse|measure|crop|diff|info|check|overlay`), top-level JSON includes:
+For standard commands (`parse|debug|locate|match|measure|crop|diff|info|check|overlay`), top-level JSON includes:
 
 - `schema_version`: current response schema version (`1.1`)
 - `command`: subcommand that produced this response

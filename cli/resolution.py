@@ -27,6 +27,7 @@ QUERY_SIDE_CHOICES = (
     "bottom",
     "center",
 )
+TARGET_PREFIX = "target:"
 
 
 class ResolutionError(Exception):
@@ -39,6 +40,51 @@ class ResolutionConfigRequiredError(ResolutionError):
     """Raised when a region reference is requested without config."""
 
     exit_code = 5
+
+
+def _expand_target_reference(
+    *,
+    spec: str,
+    targets: dict[str, dict[str, Any]] | None,
+    role: str,
+    seen: list[str] | None = None,
+) -> tuple[str, list[str]]:
+    if not spec.startswith(TARGET_PREFIX):
+        return spec, []
+
+    target_name = spec.split(":", 1)[1].strip()
+    if not target_name:
+        raise ResolutionError(f"Invalid {role} target reference '{spec}'.")
+    if targets is None:
+        raise ResolutionConfigRequiredError(
+            f"{role} uses target reference '{spec}', but no project config is loaded. Provide --config <path> or create .omni.json."
+        )
+    if target_name not in targets:
+        available = ", ".join(sorted(targets.keys())) or "<none>"
+        raise ResolutionError(
+            f"Unknown target '{target_name}' for {role}. Available targets: {available}"
+        )
+
+    chain = list(seen or [])
+    if target_name in chain:
+        cycle = " -> ".join(chain + [target_name])
+        raise ResolutionError(
+            f"Target reference cycle detected for {role}: {cycle}"
+        )
+
+    ref = str(targets[target_name].get("ref", "")).strip()
+    if not ref:
+        raise ResolutionError(
+            f"Target '{target_name}' has an empty ref and cannot be resolved for {role}."
+        )
+
+    resolved, nested_chain = _expand_target_reference(
+        spec=ref,
+        targets=targets,
+        role=role,
+        seen=chain + [target_name],
+    )
+    return resolved, [target_name] + nested_chain
 
 
 def _parse_label_query_spec(
@@ -108,6 +154,38 @@ def _parse_label_query_spec(
     return base_spec, hints, explicit_label_prefix
 
 
+def _resolve_query_spec(
+    *,
+    spec: str,
+    role: str,
+    targets: dict[str, dict[str, Any]] | None,
+) -> tuple[str, str, dict[str, Any], bool, list[str]]:
+    normalized_spec = spec.strip()
+    lookup_spec, query_hints, explicit_label_prefix = _parse_label_query_spec(
+        spec=normalized_spec,
+        role=role,
+    )
+    lookup_spec, target_chain = _expand_target_reference(
+        spec=lookup_spec,
+        targets=targets,
+        role=role,
+    )
+
+    expanded_lookup, expanded_hints, expanded_explicit = _parse_label_query_spec(
+        spec=lookup_spec,
+        role=role,
+    )
+    merged_hints = dict(expanded_hints)
+    merged_hints.update(query_hints)
+    return (
+        normalized_spec,
+        expanded_lookup,
+        merged_hints,
+        bool(explicit_label_prefix or expanded_explicit),
+        target_chain,
+    )
+
+
 def _distance_score(*, x1: float, y1: float, x2: float, y2: float, max_distance: float) -> float:
     if max_distance <= 0:
         return 1.0
@@ -144,11 +222,12 @@ def rank_reference_candidates(
     image_width: int,
     image_height: int,
     role: str,
+    targets: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    normalized_spec = spec.strip()
-    lookup_spec, query_hints, explicit_label_prefix = _parse_label_query_spec(
-        spec=normalized_spec,
+    _normalized_spec, lookup_spec, query_hints, explicit_label_prefix, target_chain = _resolve_query_spec(
+        spec=spec,
         role=role,
+        targets=targets,
     )
 
     # Ranking is only meaningful for label-style lookups.
@@ -241,6 +320,7 @@ def rank_reference_candidates(
                 "distance_to_near_px": float(distance_to_near) if distance_to_near is not None else None,
                 "hints": query_hints,
                 "explicit_label_prefix": explicit_label_prefix,
+                "target_chain": target_chain,
             }
         )
 
@@ -345,6 +425,7 @@ def resolve_reference_spec(
     edge: str,
     role: str,
     regions: dict[str, dict[str, Any]] | None = None,
+    targets: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     normalized_spec = spec.strip()
     if edge not in EDGE_CHOICES:
@@ -352,9 +433,10 @@ def resolve_reference_spec(
             f"Unsupported edge '{edge}' for {role}. Supported: {', '.join(EDGE_CHOICES)}"
         )
 
-    lookup_spec, query_hints, _explicit_label_prefix = _parse_label_query_spec(
-        spec=normalized_spec,
+    _original_spec, lookup_spec, query_hints, _explicit_label_prefix, target_chain = _resolve_query_spec(
+        spec=spec,
         role=role,
+        targets=targets,
     )
 
     if query_hints and (
@@ -373,6 +455,7 @@ def resolve_reference_spec(
         edge=edge,
     )
     if region_resolved is not None:
+        region_resolved["target_chain"] = target_chain
         return region_resolved
 
     if lookup_spec.startswith("element:"):
@@ -390,6 +473,7 @@ def resolve_reference_spec(
         return {
             "mode": "element",
             "spec": normalized_spec,
+            "target_chain": target_chain,
             "element_index": idx,
             "element_label": str(element.get("label", "")),
             "resolved_point": {"x": point_x, "y": point_y},
@@ -406,6 +490,7 @@ def resolve_reference_spec(
         return {
             "mode": "coordinates",
             "spec": normalized_spec,
+            "target_chain": target_chain,
             "resolved_point": {"x": x, "y": y},
         }
 
@@ -415,6 +500,7 @@ def resolve_reference_spec(
         image_width=image_width,
         image_height=image_height,
         role=role,
+        targets=targets,
     )
     best = ranked[0] if ranked else None
     if best is None:
@@ -450,6 +536,7 @@ def resolve_reference_spec(
         if best["distance_to_near_px"] is not None
         else None,
         "query_hints": best.get("hints") or {},
+        "target_chain": target_chain,
         "element_index": int(best_element["index"]),
         "element_label": str(best_element.get("label", "")),
         "resolved_point": {"x": point_x, "y": point_y},

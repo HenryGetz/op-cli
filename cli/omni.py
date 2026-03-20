@@ -418,7 +418,7 @@ def _error_hint(exc: Exception) -> str | None:
     if isinstance(exc, OmniConfigError):
         return "Fix .omni.json validation errors, or pass --config <path> to a valid config file."
     if isinstance(exc, ResolutionError):
-        return "Use coordinates (x,y), element:<index>, a fuzzy label, or region:<name> with a loaded config."
+        return "Use coordinates (x,y), element:<index>, a fuzzy label, region:<name>, or target:<name> with a loaded config."
     if isinstance(exc, UserInputError):
         return "Run the subcommand with --help and correct the provided arguments."
     if isinstance(exc, CheckCommandError):
@@ -889,6 +889,7 @@ def _resolve_element_by_spec(
         edge=edge,
         role=role,
         regions=project_config.regions if project_config else None,
+        targets=project_config.targets if project_config else None,
     )
 
 
@@ -1369,6 +1370,7 @@ def _cmd_locate(
         image_width=int(parsed_data["image_width"]),
         image_height=int(parsed_data["image_height"]),
         role="--query",
+        targets=project_config.targets if project_config else None,
     )
 
     resolved = _resolve_element_by_spec(
@@ -1716,6 +1718,7 @@ def _cmd_match(
             image_width=int(parsed2["image_width"]),
             image_height=int(parsed2["image_height"]),
             role="--query (image2)",
+            targets=project_config.targets if project_config else None,
         )
     }
 
