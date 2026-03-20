@@ -1018,10 +1018,144 @@ class OmniRuntime:
             for entry in reversed(removed_config_paths):
                 sys.path.insert(0, entry)
 
-    def _render_labeled_base64(self, *, image_path: Path, elements: list[dict[str, Any]]) -> str:
+    def _infer_uied_layout_regions(
+        self,
+        *,
+        image_width: int,
+        image_height: int,
+        elements: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Infer coarse layout containers that UIED's component detector often misses.
+
+        UIED is component-centric, so low-texture structural regions (e.g. dark sidebars)
+        may not appear as standalone components. These inferred regions are debug-only
+        overlays and are intentionally not added to `elements`.
+        """
+        if image_width <= 0 or image_height <= 0 or not elements:
+            return []
+
+        regions: list[dict[str, Any]] = []
+
+        edge_band_x = max(24, int(round(image_width * 0.12)))
+        edge_band_y = max(24, int(round(image_height * 0.12)))
+
+        left_bound = max(edge_band_x * 2, int(round(image_width * 0.3)))
+        left_items = []
+        for element in elements:
+            bbox = element.get("bbox", {})
+            x = int(bbox.get("x", 0))
+            width = int(bbox.get("width", 0))
+            right = x + width
+            if x <= edge_band_x and right <= left_bound:
+                left_items.append(element)
+        if len(left_items) >= 3:
+            right = max(int(item["bbox"]["x"]) + int(item["bbox"]["width"]) for item in left_items)
+            top = min(int(item["bbox"]["y"]) for item in left_items)
+            bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in left_items)
+            vertical_coverage = (bottom - top) / max(1, image_height)
+            if 30 <= right <= int(image_width * 0.35) and vertical_coverage >= 0.55:
+                regions.append(
+                    {
+                        "name": "sidebar-left",
+                        "bbox": {
+                            "x": 0,
+                            "y": 0,
+                            "width": int(right),
+                            "height": int(image_height),
+                        },
+                        "confidence": round(min(1.0, 0.45 + (vertical_coverage * 0.5)), 3),
+                        "source": "uied-layout-infer",
+                    }
+                )
+
+        right_bound = image_width - left_bound
+        right_items = []
+        for element in elements:
+            bbox = element.get("bbox", {})
+            x = int(bbox.get("x", 0))
+            width = int(bbox.get("width", 0))
+            right = x + width
+            if right >= (image_width - edge_band_x) and x >= right_bound:
+                right_items.append(element)
+        if len(right_items) >= 3:
+            left = min(int(item["bbox"]["x"]) for item in right_items)
+            top = min(int(item["bbox"]["y"]) for item in right_items)
+            bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in right_items)
+            vertical_coverage = (bottom - top) / max(1, image_height)
+            if int(image_width * 0.65) <= left <= (image_width - 30) and vertical_coverage >= 0.55:
+                regions.append(
+                    {
+                        "name": "sidebar-right",
+                        "bbox": {
+                            "x": int(left),
+                            "y": 0,
+                            "width": int(image_width - left),
+                            "height": int(image_height),
+                        },
+                        "confidence": round(min(1.0, 0.45 + (vertical_coverage * 0.5)), 3),
+                        "source": "uied-layout-infer",
+                    }
+                )
+
+        top_items = [
+            element
+            for element in elements
+            if int(element.get("bbox", {}).get("y", 0)) <= edge_band_y
+        ]
+        if len(top_items) >= 4:
+            left = min(int(item["bbox"]["x"]) for item in top_items)
+            right = max(int(item["bbox"]["x"]) + int(item["bbox"]["width"]) for item in top_items)
+            bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in top_items)
+            horizontal_coverage = (right - left) / max(1, image_width)
+            if horizontal_coverage >= 0.7 and 20 <= bottom <= int(image_height * 0.25):
+                regions.append(
+                    {
+                        "name": "top-bar",
+                        "bbox": {
+                            "x": 0,
+                            "y": 0,
+                            "width": int(image_width),
+                            "height": int(bottom),
+                        },
+                        "confidence": round(min(1.0, 0.4 + (horizontal_coverage * 0.5)), 3),
+                        "source": "uied-layout-infer",
+                    }
+                )
+
+        deduped: list[dict[str, Any]] = []
+        seen: set[tuple[int, int, int, int, str]] = set()
+        for region in regions:
+            bbox = region["bbox"]
+            key = (bbox["x"], bbox["y"], bbox["width"], bbox["height"], str(region["name"]))
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(region)
+        return deduped
+
+    def _render_labeled_base64(
+        self,
+        *,
+        image_path: Path,
+        elements: list[dict[str, Any]],
+        inferred_regions: list[dict[str, Any]] | None = None,
+    ) -> str:
         image = Image.open(image_path).convert("RGB")
         draw = ImageDraw.Draw(image)
         font = ImageFont.load_default()
+
+        for region in inferred_regions or []:
+            bbox = region.get("bbox", {})
+            x1 = int(bbox.get("x", 0))
+            y1 = int(bbox.get("y", 0))
+            x2 = x1 + int(bbox.get("width", 0))
+            y2 = y1 + int(bbox.get("height", 0))
+            color = (255, 210, 0)
+            draw.rectangle((x1, y1, x2, y2), outline=color, width=2)
+            confidence = float(region.get("confidence", 0.0))
+            name = str(region.get("name", "layout"))
+            caption = f"[layout] {name} c={confidence:.3f}"
+            draw.text((x1 + 2, max(0, y1 + 2)), caption, fill=color, font=font)
 
         for element in elements:
             bbox = element["bbox"]
@@ -1280,7 +1414,16 @@ class OmniRuntime:
                 element["index"] = idx
                 elements.append(element)
 
-            annotated_b64 = self._render_labeled_base64(image_path=image_path, elements=elements)
+            inferred_regions = self._infer_uied_layout_regions(
+                image_width=image_width,
+                image_height=image_height,
+                elements=elements,
+            )
+            annotated_b64 = self._render_labeled_base64(
+                image_path=image_path,
+                elements=elements,
+                inferred_regions=inferred_regions,
+            )
 
             return {
                 "image_path": str(image_path),
@@ -1295,6 +1438,7 @@ class OmniRuntime:
                     "ip": raw_compo_json,
                     "merge": raw_merge_json,
                     "text_engine": self.uied_text_engine,
+                    "inferred_regions": inferred_regions,
                 },
                 "box_threshold": box_threshold,
                 "effective_device": "cpu",
@@ -1355,10 +1499,23 @@ def _save_label_debug_image(
     elements: list[dict[str, Any]],
     output_path: Path,
     max_elements: int,
+    inferred_regions: list[dict[str, Any]] | None = None,
 ) -> Path:
     image = Image.open(image_path).convert("RGB")
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
+
+    for region in inferred_regions or []:
+        bbox = region.get("bbox", {})
+        x1 = int(bbox.get("x", 0))
+        y1 = int(bbox.get("y", 0))
+        x2 = x1 + int(bbox.get("width", 0))
+        y2 = y1 + int(bbox.get("height", 0))
+        color = (255, 210, 0)
+        draw.rectangle((x1, y1, x2, y2), outline=color, width=2)
+        label = str(region.get("name", "layout")).strip()
+        confidence = float(region.get("confidence", 0.0))
+        draw.text((x1 + 2, max(0, y1 + 2)), f"[layout] {label} c={confidence:.3f}", fill=color, font=font)
 
     for element in elements[: max(1, int(max_elements))]:
         bbox = element["bbox"]
@@ -2687,6 +2844,7 @@ def _cmd_debug(
         elements=elements,
         output_path=output_path,
         max_elements=max(1, int(args.max_elements or len(elements))),
+        inferred_regions=list(parsed_data.get("raw_uied", {}).get("inferred_regions", [])),
     )
 
     processing_time_ms = int(round(_perf_ms() - start_ms))
