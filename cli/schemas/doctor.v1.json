@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "omni doctor output",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "command",
+    "request_id",
+    "timestamp_utc",
+    "status",
+    "error",
+    "warnings",
+    "meta",
+    "doctor"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "command": {"const": "doctor"},
+    "request_id": {"type": "string"},
+    "timestamp_utc": {"type": "string"},
+    "status": {"enum": ["success", "error"]},
+    "error": {},
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "command",
+        "request_id",
+        "timestamp_utc",
+        "processing_time_ms",
+        "omniparser_version",
+        "cli_version"
+      ]
+    },
+    "doctor": {
+      "type": "object",
+      "required": ["result", "summary", "checks", "install_env", "recommendations"],
+      "properties": {
+        "result": {"enum": ["pass", "fail"]},
+        "summary": {
+          "type": "object",
+          "required": ["passed", "warned", "failed", "total"]
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "status", "message", "details"],
+            "properties": {
+              "id": {"type": "string"},
+              "status": {"enum": ["pass", "warn", "fail"]},
+              "message": {"type": "string"},
+              "details": {"type": "object"}
+            }
+          }
+        },
+        "install_env": {
+          "type": "object",
+          "required": ["path", "values"]
+        },
+        "parse_smoke": {},
+        "recommendations": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  }
+}
+

@@ -9,6 +9,7 @@ import contextlib
 import csv
 import difflib
 import hashlib
+import importlib
 import io
 import json
 import math
@@ -38,6 +39,7 @@ SCHEMA_RELATIVE_PATHS: dict[str, str] = {
     "debug": "cli/schemas/debug.v1.json",
     "locate": "cli/schemas/locate.v1.json",
     "match": "cli/schemas/match.v1.json",
+    "doctor": "cli/schemas/doctor.v1.json",
     "measure": "cli/schemas/measure.v1.json",
     "crop": "cli/schemas/crop.v1.json",
     "diff": "cli/schemas/diff.v1.json",
@@ -523,6 +525,32 @@ def _schema_path_for_command(repo_root: Path, command: str) -> Path:
             f"Schema file not found for '{command}': {schema_path}"
         )
     return schema_path
+
+
+def _default_install_env_path() -> Path:
+    return Path(os.environ.get("OMNI_INSTALL_ENV", "~/.config/omni/install.env")).expanduser().resolve()
+
+
+def _parse_install_env_file(path: Path) -> dict[str, str]:
+    if not path.exists() or not path.is_file():
+        return {}
+    parsed: dict[str, str] = {}
+    try:
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, raw_value = line.split("=", 1)
+            key = key.strip()
+            value = raw_value.strip()
+            if value.startswith(("'", '"')) and value.endswith(("'", '"')) and len(value) >= 2:
+                value = value[1:-1]
+            parsed[key] = value
+    except Exception:
+        return {}
+    return parsed
 
 
 def _guess_command_from_argv(raw_argv: list[str]) -> str:
@@ -1326,6 +1354,272 @@ def _output_error_json(
         "meta": context_meta or {},
     }
     _write_json_stdout(payload, response_context=response_context)
+
+
+def _cmd_doctor(
+    args: argparse.Namespace,
+    logger: Console,
+    response_context: ResponseContext,
+    *,
+    cli_root: Path,
+) -> int:
+    start_ms = _perf_ms()
+
+    def add_check(
+        *,
+        check_id: str,
+        status: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        checks.append(
+            {
+                "id": check_id,
+                "status": status,
+                "message": message,
+                "details": details or {},
+            }
+        )
+
+    checks: list[dict[str, Any]] = []
+    install_env_path = _default_install_env_path()
+    install_env_values = _parse_install_env_file(install_env_path)
+
+    if install_env_path.exists():
+        add_check(
+            check_id="install-env-file",
+            status="pass",
+            message="Persistent install env file found.",
+            details={"path": str(install_env_path)},
+        )
+    else:
+        add_check(
+            check_id="install-env-file",
+            status="warn",
+            message="Persistent install env file is missing.",
+            details={
+                "path": str(install_env_path),
+                "hint": "Run `omni setup --cli-root <path> --runtime-root <path>` once.",
+            },
+        )
+
+    cli_entry = (cli_root / "cli" / "omni.py").resolve()
+    if cli_entry.exists():
+        add_check(
+            check_id="cli-root",
+            status="pass",
+            message="CLI root is valid.",
+            details={"cli_root": str(cli_root), "cli_entry": str(cli_entry)},
+        )
+    else:
+        add_check(
+            check_id="cli-root",
+            status="fail",
+            message="CLI root is invalid (missing cli/omni.py).",
+            details={"cli_root": str(cli_root), "cli_entry": str(cli_entry)},
+        )
+
+    runtime_root: Path | None = None
+    runtime_resolution_error: str | None = None
+    try:
+        runtime_root = _resolve_runtime_root(cli_root, runtime_override=getattr(args, "runtime_root", None))
+    except Exception as exc:
+        runtime_resolution_error = str(exc)
+
+    if runtime_root is not None and _is_runtime_root(runtime_root):
+        add_check(
+            check_id="runtime-root",
+            status="pass",
+            message="OmniParser runtime root is valid.",
+            details={
+                "runtime_root": str(runtime_root),
+                "source": "--runtime-root"
+                if getattr(args, "runtime_root", None)
+                else (
+                    "env"
+                    if (os.environ.get("OMNIPARSER_ROOT") or os.environ.get("OMNI_RUNTIME_ROOT"))
+                    else "auto-discovery"
+                ),
+            },
+        )
+    else:
+        add_check(
+            check_id="runtime-root",
+            status="fail",
+            message="OmniParser runtime root is invalid or not discoverable.",
+            details={
+                "runtime_root": str(runtime_root) if runtime_root else None,
+                "error": runtime_resolution_error,
+                "hint": "Set OMNIPARSER_ROOT/OMNI_RUNTIME_ROOT or pass --runtime-root.",
+            },
+        )
+
+    python_path = Path(sys.executable).resolve()
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    add_check(
+        check_id="python",
+        status="pass" if python_path.exists() else "fail",
+        message="Python interpreter detected." if python_path.exists() else "Python interpreter path is invalid.",
+        details={"python": str(python_path), "version": python_version},
+    )
+
+    import_checks = [
+        "PIL",
+        "torch",
+        "torchvision",
+        "ultralytics",
+        "transformers",
+        "easyocr",
+        "paddleocr",
+    ]
+    import_failures = 0
+    for module_name in import_checks:
+        try:
+            module = importlib.import_module(module_name)
+            version = getattr(module, "__version__", None)
+            add_check(
+                check_id=f"import:{module_name}",
+                status="pass",
+                message=f"Module '{module_name}' import succeeded.",
+                details={"version": str(version) if version is not None else None},
+            )
+        except Exception as exc:
+            import_failures += 1
+            add_check(
+                check_id=f"import:{module_name}",
+                status="fail",
+                message=f"Module '{module_name}' import failed.",
+                details={"error": str(exc)},
+            )
+
+    inferred_runtime_root = runtime_root or cli_root
+    model_dir = Path(args.model_dir).expanduser().resolve() if args.model_dir else _default_model_dir(inferred_runtime_root)
+    som_pt = model_dir / "icon_detect" / "model.pt"
+    som_onnx = model_dir / "icon_detect" / "model.onnx"
+    caption_dir = model_dir / "icon_caption_florence"
+
+    model_ok = (som_pt.exists() or som_onnx.exists()) and caption_dir.exists()
+    add_check(
+        check_id="model-files",
+        status="pass" if model_ok else "fail",
+        message="Model files are present." if model_ok else "Model files are missing.",
+        details={
+            "model_dir": str(model_dir),
+            "icon_detect_model_pt": str(som_pt),
+            "icon_detect_model_onnx": str(som_onnx),
+            "icon_caption_dir": str(caption_dir),
+            "icon_detect_exists": bool(som_pt.exists() or som_onnx.exists()),
+            "caption_dir_exists": bool(caption_dir.exists()),
+        },
+    )
+
+    parse_smoke: dict[str, Any] | None = None
+    if getattr(args, "image", None):
+        try:
+            image_path = _resolve_image_path(args.image)
+        except Exception as exc:
+            add_check(
+                check_id="parse-smoke",
+                status="fail",
+                message="Parse smoke check image is invalid.",
+                details={"image": str(args.image), "error": str(exc)},
+            )
+        else:
+            can_run_parse = runtime_root is not None and _is_runtime_root(runtime_root) and import_failures == 0 and model_ok
+            if not can_run_parse:
+                add_check(
+                    check_id="parse-smoke",
+                    status="warn",
+                    message="Parse smoke check skipped due to prerequisite failures.",
+                    details={"image": str(image_path)},
+                )
+            else:
+                try:
+                    runtime = OmniRuntime(
+                        repo_root=runtime_root,
+                        model_dir=model_dir,
+                        requested_device=args.device,
+                        logger=logger,
+                        omniparser_version=_omniparser_version(runtime_root),
+                    )
+                    smoke_start = _perf_ms()
+                    parsed_data, cache_hit, _ = runtime.parse_image(
+                        image_path=image_path,
+                        box_threshold=args.confidence_threshold,
+                        use_cache=args.cache,
+                    )
+                    parse_smoke = {
+                        "image_path": str(image_path),
+                        "element_count": len(parsed_data.get("elements", [])),
+                        "image_width": int(parsed_data.get("image_width", 0)),
+                        "image_height": int(parsed_data.get("image_height", 0)),
+                        "cache_hit": bool(cache_hit),
+                        "processing_time_ms": int(round(_perf_ms() - smoke_start)),
+                    }
+                    add_check(
+                        check_id="parse-smoke",
+                        status="pass",
+                        message="Parse smoke check succeeded.",
+                        details=parse_smoke,
+                    )
+                except Exception as exc:
+                    add_check(
+                        check_id="parse-smoke",
+                        status="fail",
+                        message="Parse smoke check failed.",
+                        details={"image": str(image_path), "error": str(exc)},
+                    )
+
+    failed = [item for item in checks if item.get("status") == "fail"]
+    warned = [item for item in checks if item.get("status") == "warn"]
+    passed = [item for item in checks if item.get("status") == "pass"]
+
+    result = "pass" if not failed else "fail"
+    recommendations: list[str] = []
+    if failed:
+        recommendations.append("Run `omni setup --cli-root <path> --runtime-root <path>` to persist install paths.")
+    if any(item.get("id") == "runtime-root" and item.get("status") == "fail" for item in checks):
+        recommendations.append("Set `OMNIPARSER_ROOT` or pass `--runtime-root` to commands and re-run `omni doctor`.")
+    if any(item.get("id") == "model-files" and item.get("status") == "fail" for item in checks):
+        recommendations.append("Set `OMNI_MODEL_DIR` to the correct weights folder or download OmniParser-v2.0 weights.")
+
+    runtime_for_meta = runtime_root if runtime_root is not None else cli_root
+    processing_time_ms = int(round(_perf_ms() - start_ms))
+    payload = {
+        "status": "success",
+        "error": None,
+        "warnings": [item["message"] for item in warned],
+        "meta": {
+            "command": response_context.command,
+            "request_id": response_context.request_id,
+            "timestamp_utc": response_context.timestamp_utc,
+            "processing_time_ms": processing_time_ms,
+            "omniparser_version": _omniparser_version(runtime_for_meta),
+            "cli_version": CLI_VERSION,
+            "cli_root": str(cli_root),
+            "runtime_root": str(runtime_root) if runtime_root else None,
+            "install_env_path": str(install_env_path),
+            "config_path": str(Path(args.config).expanduser().resolve()) if getattr(args, "config", None) else None,
+        },
+        "doctor": {
+            "result": result,
+            "summary": {
+                "passed": len(passed),
+                "warned": len(warned),
+                "failed": len(failed),
+                "total": len(checks),
+            },
+            "checks": checks,
+            "install_env": {
+                "path": str(install_env_path),
+                "values": install_env_values,
+            },
+            "parse_smoke": parse_smoke,
+            "recommendations": recommendations,
+        },
+    }
+    _write_json_stdout(payload, response_context=response_context)
+    return 0 if result == "pass" else 2
 
 
 def _cmd_parse(
@@ -2316,6 +2610,7 @@ def _build_parser(
         "  debug    Render a labeled debug image of detections. Example: omni debug screen.png -o /tmp/debug.png\n"
         "  locate   Resolve a label/selector to element candidates. Example: omni locate screen.png --query \"save|side:right\"\n"
         "  match    Match one logical UI element across two screenshots. Example: omni match before.png after.png --query \"save\"\n"
+        "  doctor   Diagnose environment/runtime/model health. Example: omni doctor --image screen.png\n"
         "  measure  Measure pixel distances between points/elements. Example: omni measure screen.png --from element:0 --to element:1\n"
         "  crop     Extract a screenshot region. Example: omni crop screen.png --region 0,0,200,200 -o crop.png\n"
         "  diff     Compare two screenshots structurally. Example: omni diff before.png after.png --tolerance 5\n"
@@ -2654,6 +2949,31 @@ def _build_parser(
         help="Fail when top candidates are too close in score (automation-safe mode).",
     )
 
+    doctor_help = (
+        "Run environment diagnostics for wrapper/runtime/dependencies/models.\n\n"
+        "Examples:\n"
+        "  omni doctor --quiet\n"
+        "  omni doctor --runtime-root /path/to/OmniParser --quiet\n"
+        "  omni doctor --image screenshot.png --quiet\n"
+    )
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Diagnose Omni CLI runtime health.",
+        epilog=doctor_help,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    add_trailing_global_flags(doctor_parser)
+    doctor_parser.add_argument(
+        "--image",
+        help="Optional image path for parse smoke test.",
+    )
+    doctor_parser.add_argument(
+        "--confidence-threshold",
+        type=float,
+        default=DEFAULT_BOX_THRESHOLD,
+        help="Detection threshold used by optional parse smoke test.",
+    )
+
     measure_help = (
         "Examples:\n"
         "  omni measure screen.png --from 120,300 --to 450,300\n"
@@ -2806,6 +3126,7 @@ def _build_parser(
             "debug",
             "locate",
             "match",
+            "doctor",
             "measure",
             "crop",
             "diff",
@@ -2822,6 +3143,7 @@ def _build_parser(
         "debug": debug_parser,
         "locate": locate_parser,
         "match": match_parser,
+        "doctor": doctor_parser,
         "measure": measure_parser,
         "crop": crop_parser,
         "diff": diff_parser,
@@ -2975,6 +3297,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         project_config = config_manager.get(required=(args.command == "check"))
         config_sha256 = _config_sha256(project_config)
+
+        if args.command == "doctor":
+            return _cmd_doctor(
+                args,
+                logger,
+                response_context,
+                cli_root=cli_root,
+            )
 
         runtime_root = _resolve_runtime_root(cli_root, runtime_override=getattr(args, "runtime_root", None))
         omniparser_version = _omniparser_version(runtime_root)

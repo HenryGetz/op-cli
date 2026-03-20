@@ -82,6 +82,12 @@ omni overlay before.png after.png -o /tmp/overlay.png --bbox-ref --bbox-test
 
 # Print schema path for a command
 omni parse --schema
+
+# Diagnose runtime/model/dependency health
+omni doctor --image screenshot.png --quiet
+
+# Persist install paths once for future invocations
+omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser
 ```
 
 ## Commands
@@ -90,13 +96,49 @@ omni parse --schema
 - `omni debug <image> -o <output>`
 - `omni locate <image> --query <selector>`
 - `omni match <image1> <image2> --query <selector>`
+- `omni doctor [--image <path>]`
 - `omni measure <image> --from <spec> --to <spec>`
 - `omni crop <image> --region <x,y,w,h> | --region-name <name> | --element <index>`
 - `omni diff <image1> <image2>`
 - `omni info <image>`
 - `omni check <image>`
 - `omni overlay <image1> <image2> -o <output_path>`
+- `omni setup --cli-root <path> --runtime-root <path> [--python <path>]`
 - `omni help` and `omni <subcommand> --help`
+
+## Persistent Setup
+
+Use wrapper-level setup once, then all future runs reuse these paths from `~/.config/omni/install.env`.
+
+```sh
+# Save defaults
+omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser
+
+# Include preferred Python
+omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --python /path/to/python
+
+# Inspect saved config
+omni setup --show
+
+# Clear saved config
+omni setup --clear
+```
+
+Setup validations:
+
+- `--cli-root` must contain `cli/omni.py`
+- `--runtime-root` must contain `util/utils.py`
+- `--python` must be executable
+
+## Windows Launchers
+
+Cross-platform launchers are included in `bin/`:
+
+- `bin/omni` (POSIX sh)
+- `bin/omni.cmd` (Windows cmd)
+- `bin/omni.ps1` (PowerShell)
+
+On Windows, place these in a directory on `PATH`. `omni.cmd` delegates to `omni.ps1`, which supports the same environment variables and `setup` flow.
 
 ## Global Flags
 
@@ -330,6 +372,29 @@ omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <
 
 `match.ambiguity` is included to highlight close-call matches; agents can enforce this automatically with `--require-unambiguous`.
 
+## `omni doctor` Reference
+
+### Usage
+
+```sh
+omni doctor [--image <path>] [--runtime-root <path>] [--model-dir <path>] [--quiet]
+```
+
+### Purpose
+
+- Validate runtime resolution (CLI root + OmniParser root)
+- Validate dependency imports (`torch`, `ultralytics`, `easyocr`, etc.)
+- Validate model file presence
+- Optionally run parse smoke test when `--image` is provided
+
+### Output
+
+- `doctor.result`: `pass|fail`
+- `doctor.summary`: pass/warn/fail totals
+- `doctor.checks[]`: normalized check entries with `id`, `status`, `message`, `details`
+- `doctor.install_env`: resolved install env path + parsed values
+- `doctor.parse_smoke`: parse metrics when image smoke test runs
+
 ## `omni debug` Reference
 
 ### Usage
@@ -426,7 +491,7 @@ omni overlay <image1> <image2> -o <output_path> [--opacity <float>] [--bbox-ref 
 
 ## JSON Output Contract (General)
 
-For standard commands (`parse|debug|locate|match|measure|crop|diff|info|check|overlay`), top-level JSON includes:
+For standard commands (`parse|debug|locate|match|doctor|measure|crop|diff|info|check|overlay`), top-level JSON includes:
 
 - `schema_version`: current response schema version (`1.1`)
 - `command`: subcommand that produced this response
@@ -457,6 +522,7 @@ Canonical JSON schema files are provided in `cli/schemas/`:
 - `cli/schemas/debug.v1.json`
 - `cli/schemas/locate.v1.json`
 - `cli/schemas/match.v1.json`
+- `cli/schemas/doctor.v1.json`
 - `cli/schemas/measure.v1.json`
 - `cli/schemas/crop.v1.json`
 - `cli/schemas/diff.v1.json`

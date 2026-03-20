@@ -96,6 +96,7 @@ def main() -> int:
         ("debug", ["omni", "debug", str(image_path), "-o", str(work / "debug.png"), "--quiet"]),
         ("locate", ["omni", "locate", str(image_path), "--query", "target:probe", "--quiet"]),
         ("match", ["omni", "match", str(image_path), str(image_path), "--query", "target:probe", "--anchor", "target:left-rail", "--quiet"]),
+        ("doctor", ["omni", "doctor", "--image", str(image_path), "--quiet"]),
         ("measure", ["omni", "measure", str(image_path), "--from", "target:left-rail", "--to", "target:right-rail", "--quiet"]),
         ("crop", ["omni", "crop", str(image_path), "--region", "0,0,20,20", "-o", str(work / "crop.png"), "--quiet"]),
         ("diff", ["omni", "diff", str(image_path), str(image_path), "--quiet"]),
@@ -113,7 +114,7 @@ def main() -> int:
         if command == "parse":
             check_parse_specific(payload)
 
-    for command in ["parse", "debug", "locate", "match", "measure", "crop", "diff", "info", "check", "overlay"]:
+    for command in ["parse", "debug", "locate", "match", "doctor", "measure", "crop", "diff", "info", "check", "overlay"]:
         code, stdout, stderr = run(["omni", command, "--schema"], cwd=work)
         require(code == 0, f"schema:{command}: exit code")
         require(stderr == "", f"schema:{command}: expected empty stderr")

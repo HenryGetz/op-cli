@@ -22,12 +22,142 @@ resolve_script_path() {
 }
 
 script_path="$(resolve_script_path "$0")"
-script_dir="$(CDPATH= cd -- "$(dirname -- "$script_path")" && pwd -P)"
+script_dir="$(CDPATH='' cd -- "$(dirname -- "$script_path")" && pwd -P)"
 
 install_env="${OMNI_INSTALL_ENV:-$HOME/.config/omni/install.env}"
 if [ -f "$install_env" ]; then
   # shellcheck disable=SC1090
   . "$install_env"
+fi
+
+setup_usage() {
+  cat <<'EOF'
+Usage: omni setup [--cli-root <path>] [--runtime-root <path>] [--python <path>] [--show] [--clear]
+
+Writes persistent config to ~/.config/omni/install.env (or $OMNI_INSTALL_ENV).
+
+Examples:
+  omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser
+  omni setup --show
+  omni setup --clear
+EOF
+}
+
+shell_escape_single() {
+  printf "%s" "$1" | sed "s/'/'\"'\"'/g"
+}
+
+if [ "${1:-}" = "setup" ]; then
+  shift
+
+  setup_cli_root="${OMNI_CLI_ROOT:-}"
+  setup_runtime_root="${OMNIPARSER_ROOT:-${OMNI_RUNTIME_ROOT:-}}"
+  setup_python="${OMNI_PYTHON:-}"
+  setup_show=0
+  setup_clear=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --cli-root)
+        shift
+        [ "$#" -gt 0 ] || { echo "omni setup: --cli-root requires a value" >&2; exit 1; }
+        setup_cli_root="$1"
+        ;;
+      --runtime-root)
+        shift
+        [ "$#" -gt 0 ] || { echo "omni setup: --runtime-root requires a value" >&2; exit 1; }
+        setup_runtime_root="$1"
+        ;;
+      --python)
+        shift
+        [ "$#" -gt 0 ] || { echo "omni setup: --python requires a value" >&2; exit 1; }
+        setup_python="$1"
+        ;;
+      --show)
+        setup_show=1
+        ;;
+      --clear)
+        setup_clear=1
+        ;;
+      -h|--help)
+        setup_usage
+        exit 0
+        ;;
+      *)
+        echo "omni setup: unknown option '$1'" >&2
+        setup_usage >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+
+  if [ "$setup_show" -eq 1 ]; then
+    echo "install_env=$install_env"
+    if [ -f "$install_env" ]; then
+      cat "$install_env"
+    else
+      echo "(not configured)"
+    fi
+    exit 0
+  fi
+
+  if [ "$setup_clear" -eq 1 ]; then
+    if [ -f "$install_env" ]; then
+      rm -f "$install_env"
+    fi
+    echo "Cleared persistent config at $install_env"
+    exit 0
+  fi
+
+  if [ -z "$setup_cli_root" ] || [ -z "$setup_runtime_root" ]; then
+    echo "omni setup requires --cli-root and --runtime-root (or pre-set env values)." >&2
+    exit 1
+  fi
+
+  setup_cli_root="$(cd "$setup_cli_root" 2>/dev/null && pwd -P || true)"
+  setup_runtime_root="$(cd "$setup_runtime_root" 2>/dev/null && pwd -P || true)"
+
+  if [ -z "$setup_cli_root" ] || [ ! -f "$setup_cli_root/cli/omni.py" ]; then
+    echo "omni setup: invalid --cli-root (missing cli/omni.py)." >&2
+    exit 1
+  fi
+
+  if [ -z "$setup_runtime_root" ] || [ ! -f "$setup_runtime_root/util/utils.py" ]; then
+    echo "omni setup: invalid --runtime-root (missing util/utils.py)." >&2
+    exit 1
+  fi
+
+  if [ -n "$setup_python" ]; then
+    setup_python="$(cd "$(dirname "$setup_python")" 2>/dev/null && pwd -P)/$(basename "$setup_python")"
+    if [ ! -x "$setup_python" ]; then
+      echo "omni setup: invalid --python (not executable): $setup_python" >&2
+      exit 1
+    fi
+  fi
+
+  install_dir="$(dirname "$install_env")"
+  mkdir -p "$install_dir"
+
+  escaped_cli="$(shell_escape_single "$setup_cli_root")"
+  escaped_runtime="$(shell_escape_single "$setup_runtime_root")"
+
+  {
+    printf "OMNI_CLI_ROOT='%s'\n" "$escaped_cli"
+    printf "OMNIPARSER_ROOT='%s'\n" "$escaped_runtime"
+    if [ -n "$setup_python" ]; then
+      escaped_python="$(shell_escape_single "$setup_python")"
+      printf "OMNI_PYTHON='%s'\n" "$escaped_python"
+    fi
+  } >"$install_env"
+
+  echo "Saved persistent omni config to $install_env"
+  echo "OMNI_CLI_ROOT=$setup_cli_root"
+  echo "OMNIPARSER_ROOT=$setup_runtime_root"
+  if [ -n "$setup_python" ]; then
+    echo "OMNI_PYTHON=$setup_python"
+  fi
+  exit 0
 fi
 
 find_cli_root() {
@@ -145,4 +275,3 @@ else
 fi
 
 exec "$PYTHON_BIN" "$CLI_ENTRY" "$@"
-
