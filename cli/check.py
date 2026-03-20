@@ -6,6 +6,7 @@ import json
 import time
 import argparse
 import hashlib
+import base64
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,12 @@ def _sha256_file(path: Path) -> str:
                 break
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _save_annotated_image(annotated_b64: str, output_path: Path) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(base64.b64decode(annotated_b64))
+    return output_path.resolve()
 
 
 def add_check_subparser(
@@ -72,6 +79,10 @@ def add_check_subparser(
             "Detection threshold for parse-backed assertions "
             f"(default: {default_box_threshold})."
         ),
+    )
+    parser.add_argument(
+        "--save-annotated",
+        help="Save OmniParser annotated image used during check to this path.",
     )
     return parser
 
@@ -130,6 +141,7 @@ def run_check_command(
 
     cache_hit = False
     elements: list[dict[str, Any]] = []
+    parsed_data: dict[str, Any] | None = None
 
     if parse_needed:
         parsed_data, cache_hit, _logs = runtime.parse_image(
@@ -143,6 +155,16 @@ def run_check_command(
     else:
         image = Image.open(image_path)
         image_width, image_height = image.size
+
+    if args.save_annotated and parsed_data is None:
+        parsed_data, cache_hit, _logs = runtime.parse_image(
+            image_path=image_path,
+            box_threshold=args.confidence_threshold,
+            use_cache=args.cache,
+        )
+        image_width = int(parsed_data["image_width"])
+        image_height = int(parsed_data["image_height"])
+        elements = list(parsed_data["elements"])
 
     assertion_ctx = AssertionContext(
         image_path=image_path,
@@ -226,6 +248,7 @@ def run_check_command(
                 "config_path": str(project_config.path),
                 "elements_detected": len(elements),
                 "parse_required": parse_needed,
+                "parse_performed": bool(parsed_data is not None),
                 "image_sha256": image_sha256,
                 "config_sha256": config_sha256,
             },
@@ -237,6 +260,17 @@ def run_check_command(
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
         payload["meta"]["report_path"] = str(output_path)
+
+    if args.save_annotated:
+        if parsed_data is None:
+            raise CheckCommandError(
+                "Unable to generate annotated image for check results."
+            )
+        annotated_path = _save_annotated_image(
+            parsed_data["annotated_image_base64"],
+            Path(args.save_annotated).expanduser().resolve(),
+        )
+        payload["meta"]["annotated_path"] = str(annotated_path)
 
     exit_code = 0 if result == "pass" else 4
     return payload, exit_code

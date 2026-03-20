@@ -80,6 +80,9 @@ def main() -> int:
 
     checks = [
         ("parse", ["omni", "parse", str(image_path), "--quiet"]),
+        ("debug", ["omni", "debug", str(image_path), "-o", str(work / "debug.png"), "--quiet"]),
+        ("locate", ["omni", "locate", str(image_path), "--query", "*|near:20,20", "--quiet"]),
+        ("match", ["omni", "match", str(image_path), str(image_path), "--query", "*|near:20,20", "--quiet"]),
         ("measure", ["omni", "measure", str(image_path), "--from", "0,0", "--to", "10,0", "--quiet"]),
         ("crop", ["omni", "crop", str(image_path), "--region", "0,0,20,20", "-o", str(work / "crop.png"), "--quiet"]),
         ("diff", ["omni", "diff", str(image_path), str(image_path), "--quiet"]),
@@ -95,13 +98,14 @@ def main() -> int:
         payload = parse_json(stdout)
         check_envelope(payload, command)
 
-    code, stdout, stderr = run(["omni", "parse", str(image_path), "--schema"], cwd=work)
-    require(code == 0, "schema: exit code")
-    require(stderr == "", "schema: expected empty stderr")
-    payload = parse_json(stdout)
-    require(payload.get("status") == "success", "schema: expected success")
-    require(payload.get("command") == "parse", "schema: command mismatch")
-    require(Path(payload["schema"]["path"]).exists(), "schema: path does not exist")
+    for command in ["parse", "debug", "locate", "match", "measure", "crop", "diff", "info", "check", "overlay"]:
+        code, stdout, stderr = run(["omni", command, "--schema"], cwd=work)
+        require(code == 0, f"schema:{command}: exit code")
+        require(stderr == "", f"schema:{command}: expected empty stderr")
+        payload = parse_json(stdout)
+        require(payload.get("status") == "success", f"schema:{command}: expected success")
+        require(payload.get("command") == command, f"schema:{command}: command mismatch")
+        require(Path(payload["schema"]["path"]).exists(), f"schema:{command}: path does not exist")
 
     print("contract smoke: PASS")
     return 0

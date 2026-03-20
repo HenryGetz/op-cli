@@ -25,6 +25,18 @@ Optional environment overrides:
 # Parse to structured JSON
 omni parse screenshot.png --quiet
 
+# Parse + save OmniParser-native annotated debug image
+omni parse screenshot.png --save-annotated /tmp/annotated.png --quiet
+
+# Render full labeled debug image (idx/type/conf/label)
+omni debug screenshot.png -o /tmp/debug-labeled.png --quiet
+
+# Locate best match with proximity hints + ranked debug image
+omni locate screenshot.png --query "label:save|side:right|near:1400,900" --save-annotated /tmp/locate.png --quiet
+
+# Match one element across two screenshots robustly
+omni match before.png after.png --query "label:save|side:right|near:1400,900" --anchor "region:sidebar" --save-annotated /tmp/match.png --quiet
+
 # Pixel ruler
 omni measure screenshot.png --from element:0 --to element:1 --edge center
 
@@ -50,6 +62,9 @@ omni parse --schema
 ## Commands
 
 - `omni parse <image>`
+- `omni debug <image> -o <output>`
+- `omni locate <image> --query <selector>`
+- `omni match <image1> <image2> --query <selector>`
 - `omni measure <image> --from <spec> --to <spec>`
 - `omni crop <image> --region <x,y,w,h> | --region-name <name> | --element <index>`
 - `omni diff <image1> <image2>`
@@ -80,6 +95,22 @@ omni parse --schema
 For every subcommand invocation, `omni` searches from current working directory upward for `.omni.json`, stopping at `$HOME` or filesystem root (whichever comes first). If not found, commands still run normally unless config is required (for example `omni check`, or `region:<name>` references).
 
 Use `--config <path>` to bypass discovery and load a specific config file.
+
+### Proximity-aware reference queries
+
+When label text varies between screenshots, use selector hints to bias matching:
+
+- `near:x,y` prefers candidates near a point
+- `side:left|right|top|bottom|center` biases toward a side/zone
+- `within:px` enforces max distance from the `near` point
+
+Examples:
+
+- `label:save|side:right|near:1400,900`
+- `submit|near:300,220|within:250`
+- `*|side:bottom|near:960,1020`
+
+These selectors work anywhere a reference string is accepted (`omni locate`, `omni measure --from/--to`, and `measurement` assertions in `.omni.json`).
 
 ### Schema
 
@@ -177,7 +208,7 @@ These edges apply to both region and element references.
 ### Usage
 
 ```sh
-omni check <image> [--config <path>] [--only <id,id,...>] [--skip <id,id,...>] [--save-report <path>] [--quiet]
+omni check <image> [--config <path>] [--only <id,id,...>] [--skip <id,id,...>] [--save-report <path>] [--save-annotated <path>] [--quiet]
 ```
 
 ### Behavior
@@ -187,6 +218,65 @@ omni check <image> [--config <path>] [--only <id,id,...>] [--skip <id,id,...>] [
 3. Skips OmniParser inference when selected assertions are static-only
 4. Emits JSON report to stdout
 5. Optionally writes report to disk via `--save-report`
+6. Optionally saves annotated debug image via `--save-annotated`
+
+## `omni locate` Reference
+
+### Usage
+
+```sh
+omni locate <image> --query <selector> [--edge <edge>] [--top-k <n>] [--save-annotated <path>] [--quiet]
+```
+
+### Purpose
+
+- Debugs label mismatch situations by returning ranked candidates
+- Shows how proximity hints influenced matching scores
+- Produces a visual candidate ranking image when `--save-annotated` is provided
+
+### Output fields
+
+- `locate.query`: original selector
+- `locate.resolved`: final resolved target (same contract used by `measure`)
+- `locate.candidates[]`: ranked candidates with `score`, `label_score`, `near_score`, `side_score`, and distance-to-near
+- `meta.annotated_path`: debug image path when requested
+
+## `omni match` Reference
+
+### Usage
+
+```sh
+omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <n>] [--min-score <float>] [--save-annotated <path>] [--quiet]
+```
+
+### Purpose
+
+- Reliably track the same logical UI element across two screenshots
+- Handles duplicate/changed labels using multi-factor scoring
+- Supports optional shared anchors (`--anchor`) to stabilize matching across layout shifts
+
+### Scoring factors
+
+- `query_score`: selector match quality in image2 (includes proximity hints)
+- `label_similarity`: source label vs candidate label
+- `position_score`: normalized center-position consistency across screenshots
+- `size_score`: width/height similarity
+- `type_score`: element type match (`text`, `icon`, etc.)
+- `anchor_score`: relative-position consistency to resolved anchors (when provided)
+
+## `omni debug` Reference
+
+### Usage
+
+```sh
+omni debug <image> -o <output_path> [--max-elements <n>] [--confidence-threshold <float>] [--quiet]
+```
+
+### Purpose
+
+- Produces a robust visual debug artifact with box overlays and text labels
+- Each box includes `index`, `element_type`, `confidence`, and truncated label text
+- Useful for quickly verifying parser quality and label correctness before assertions/matching
 
 ### Output schema
 
@@ -298,6 +388,9 @@ Error payloads include machine-actionable fields:
 Canonical JSON schema files are provided in `cli/schemas/`:
 
 - `cli/schemas/parse.v1.json`
+- `cli/schemas/debug.v1.json`
+- `cli/schemas/locate.v1.json`
+- `cli/schemas/match.v1.json`
 - `cli/schemas/measure.v1.json`
 - `cli/schemas/crop.v1.json`
 - `cli/schemas/diff.v1.json`
@@ -337,6 +430,7 @@ Additional recommendations:
 - always use absolute image paths in automation
 - keep `--quiet` enabled for parser-safe stdout JSON
 - use `--save-report` for audit trail artifacts
+- when label matching is unstable, use `omni locate ... --query "label:...|near:...|side:..."` before `measure/check`
 - use `--only` and `--skip` to narrow expensive checks during iterative tuning
 
 ## Known Limitations

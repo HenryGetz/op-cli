@@ -7,6 +7,7 @@ import argparse
 import base64
 import contextlib
 import csv
+import difflib
 import hashlib
 import io
 import json
@@ -27,13 +28,16 @@ from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 from check import CheckCommandError, add_check_subparser, run_check_command
 from config import OmniConfigError, ProjectConfig, ProjectConfigManager
 from overlay import OverlayCommandError, add_overlay_subparser, run_overlay_command
-from resolution import EDGE_CHOICES, ResolutionError, resolve_reference_spec, region_to_bbox
+from resolution import EDGE_CHOICES, ResolutionError, rank_reference_candidates, resolve_reference_spec, region_to_bbox
 
 
 CLI_VERSION = "1.0.0"
 SCHEMA_VERSION = "1.1"
 SCHEMA_RELATIVE_PATHS: dict[str, str] = {
     "parse": "cli/schemas/parse.v1.json",
+    "debug": "cli/schemas/debug.v1.json",
+    "locate": "cli/schemas/locate.v1.json",
+    "match": "cli/schemas/match.v1.json",
     "measure": "cli/schemas/measure.v1.json",
     "crop": "cli/schemas/crop.v1.json",
     "diff": "cli/schemas/diff.v1.json",
@@ -724,6 +728,149 @@ def _save_annotated_image(annotated_b64: str, output_path: Path) -> Path:
     return output_path.resolve()
 
 
+def _save_locate_debug_image(
+    *,
+    image_path: Path,
+    candidates: list[dict[str, Any]],
+    output_path: Path,
+    top_k: int,
+) -> Path:
+    image = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+
+    for rank, candidate in enumerate(candidates[: max(1, int(top_k))], start=1):
+        bbox = candidate["bbox"]
+        x1 = int(bbox["x"])
+        y1 = int(bbox["y"])
+        x2 = x1 + int(bbox["width"])
+        y2 = y1 + int(bbox["height"])
+
+        if rank == 1:
+            color = (30, 175, 60)
+        elif rank == 2:
+            color = (200, 140, 20)
+        else:
+            color = (190, 40, 40)
+
+        draw.rectangle((x1, y1, x2, y2), outline=color, width=3)
+        text_label = str(candidate.get("label") or "").replace("\n", " ").strip()
+        if len(text_label) > 42:
+            text_label = text_label[:39] + "..."
+        label = (
+            f"#{rank} idx={candidate['index']} score={candidate['score']:.3f} "
+            f"[{candidate.get('element_type')}] {text_label}"
+        )
+        draw.text((x1 + 2, max(0, y1 - 12)), label, fill=color, font=font)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(output_path)
+    return output_path.resolve()
+
+
+def _save_label_debug_image(
+    *,
+    image_path: Path,
+    elements: list[dict[str, Any]],
+    output_path: Path,
+    max_elements: int,
+) -> Path:
+    image = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+
+    for element in elements[: max(1, int(max_elements))]:
+        bbox = element["bbox"]
+        x1 = int(bbox["x"])
+        y1 = int(bbox["y"])
+        x2 = x1 + int(bbox["width"])
+        y2 = y1 + int(bbox["height"])
+        color = (35, 110, 215)
+        draw.rectangle((x1, y1, x2, y2), outline=color, width=2)
+
+        label = str(element.get("label", "")).replace("\n", " ").strip()
+        if len(label) > 48:
+            label = label[:45] + "..."
+        caption = (
+            f"#{element['index']} [{element.get('element_type', 'unknown')}] "
+            f"c={float(element.get('confidence', 0.0)):.3f} {label}"
+        )
+        draw.text((x1 + 2, max(0, y1 - 12)), caption, fill=color, font=font)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(output_path)
+    return output_path.resolve()
+
+
+def _normalized_center(bbox: dict[str, int], image_width: int, image_height: int) -> tuple[float, float]:
+    cx, cy = _bbox_point_for_edge(bbox, edge="center")
+    width = max(1, int(image_width))
+    height = max(1, int(image_height))
+    return float(cx) / width, float(cy) / height
+
+
+def _size_similarity(a_bbox: dict[str, int], b_bbox: dict[str, int]) -> float:
+    aw = max(1.0, float(a_bbox["width"]))
+    ah = max(1.0, float(a_bbox["height"]))
+    bw = max(1.0, float(b_bbox["width"]))
+    bh = max(1.0, float(b_bbox["height"]))
+    width_ratio = min(aw, bw) / max(aw, bw)
+    height_ratio = min(ah, bh) / max(ah, bh)
+    return max(0.0, min(1.0, (width_ratio + height_ratio) / 2.0))
+
+
+def _match_debug_visual(
+    *,
+    image1_path: Path,
+    image2_path: Path,
+    source: dict[str, Any],
+    candidates: list[dict[str, Any]],
+    output_path: Path,
+    top_k: int,
+) -> Path:
+    image1 = Image.open(image1_path).convert("RGB")
+    image2 = Image.open(image2_path).convert("RGB")
+    gap = 24
+    canvas_width = image1.width + gap + image2.width
+    canvas_height = max(image1.height, image2.height)
+    canvas = Image.new("RGB", (canvas_width, canvas_height), (255, 255, 255))
+    canvas.paste(image1, (0, 0))
+    canvas.paste(image2, (image1.width + gap, 0))
+
+    draw = ImageDraw.Draw(canvas)
+    font = ImageFont.load_default()
+
+    source_bbox = source["bbox"]
+    sx1 = int(source_bbox["x"])
+    sy1 = int(source_bbox["y"])
+    sx2 = sx1 + int(source_bbox["width"])
+    sy2 = sy1 + int(source_bbox["height"])
+    draw.rectangle((sx1, sy1, sx2, sy2), outline=(30, 150, 40), width=3)
+    s_label = str(source.get("label", "")).replace("\n", " ").strip()
+    if len(s_label) > 40:
+        s_label = s_label[:37] + "..."
+    draw.text((sx1 + 2, max(0, sy1 - 12)), f"SOURCE idx={source['index']} {s_label}", fill=(30, 150, 40), font=font)
+
+    right_offset = image1.width + gap
+    for rank, candidate in enumerate(candidates[: max(1, int(top_k))], start=1):
+        bbox = candidate["bbox"]
+        x1 = int(bbox["x"]) + right_offset
+        y1 = int(bbox["y"])
+        x2 = x1 + int(bbox["width"])
+        y2 = y1 + int(bbox["height"])
+        color = (30, 175, 60) if rank == 1 else (185, 65, 45)
+        draw.rectangle((x1, y1, x2, y2), outline=color, width=3)
+        label = str(candidate.get("label", "")).replace("\n", " ").strip()
+        if len(label) > 36:
+            label = label[:33] + "..."
+        caption = f"#{rank} idx={candidate['index']} s={candidate['match_score']:.3f} {label}"
+        draw.text((x1 + 2, max(0, y1 - 12)), caption, fill=color, font=font)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(output_path)
+    return output_path.resolve()
+
+
 def _resolve_element_by_spec(
     *,
     spec: str,
@@ -1193,6 +1340,134 @@ def _cmd_measure(
     return 0
 
 
+def _cmd_locate(
+    args: argparse.Namespace,
+    runtime: OmniRuntime,
+    logger: Console,
+    project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
+) -> int:
+    start_ms = _perf_ms()
+    if int(args.top_k) <= 0:
+        raise UserInputError("--top-k must be >= 1.")
+    image_path = _resolve_image_path(args.image)
+    image_sha256 = _sha256_file(image_path)
+
+    parsed_data, cache_hit, logs = runtime.parse_image(
+        image_path=image_path,
+        box_threshold=args.confidence_threshold,
+        use_cache=args.cache,
+    )
+    if args.verbose and logs:
+        logger.debug(logs.rstrip())
+
+    elements = list(parsed_data["elements"])
+    ranked_raw = rank_reference_candidates(
+        spec=args.query,
+        elements=elements,
+        image_width=int(parsed_data["image_width"]),
+        image_height=int(parsed_data["image_height"]),
+        role="--query",
+    )
+
+    resolved = _resolve_element_by_spec(
+        spec=args.query,
+        elements=elements,
+        image_width=int(parsed_data["image_width"]),
+        image_height=int(parsed_data["image_height"]),
+        edge=args.edge,
+        role="--query",
+        project_config=project_config,
+    )
+
+    candidates: list[dict[str, Any]] = []
+    for candidate in ranked_raw[: max(1, int(args.top_k))]:
+        element = candidate["element"]
+        candidates.append(
+            {
+                "index": int(element["index"]),
+                "label": str(element.get("label", "")),
+                "element_type": str(element.get("element_type", "unknown")),
+                "confidence": float(element.get("confidence", 0.0)),
+                "bbox": element["bbox"],
+                "score": round(float(candidate["score"]), 6),
+                "label_score": round(float(candidate["label_score"]), 6),
+                "near_score": round(float(candidate["near_score"]), 6)
+                if candidate.get("near_score") is not None
+                else None,
+                "side_score": round(float(candidate["side_score"]), 6)
+                if candidate.get("side_score") is not None
+                else None,
+                "distance_to_near_px": round(float(candidate["distance_to_near_px"]), 3)
+                if candidate.get("distance_to_near_px") is not None
+                else None,
+            }
+        )
+
+    if not candidates and resolved.get("mode") in {"element", "region", "coordinates", "label"}:
+        candidates.append(
+            {
+                "index": int(resolved.get("element_index", -1)),
+                "label": str(resolved.get("element_label", "")),
+                "element_type": None,
+                "confidence": None,
+                "bbox": resolved.get("resolved_bbox"),
+                "score": float(resolved.get("matched_score", 1.0)),
+                "label_score": float(resolved.get("matched_label_score", 1.0))
+                if resolved.get("matched_label_score") is not None
+                else None,
+                "near_score": resolved.get("matched_near_score"),
+                "side_score": resolved.get("matched_side_score"),
+                "distance_to_near_px": resolved.get("distance_to_near_px"),
+            }
+        )
+
+    debug_path = None
+    if args.save_annotated:
+        debug_path = _save_locate_debug_image(
+            image_path=image_path,
+            candidates=[candidate for candidate in candidates if candidate.get("bbox")],
+            output_path=Path(args.save_annotated).expanduser().resolve(),
+            top_k=args.top_k,
+        )
+
+    processing_time_ms = int(round(_perf_ms() - start_ms))
+    payload = {
+        "status": "success",
+        "error": None,
+        "meta": _meta(
+            response_context=response_context,
+            image_path=str(image_path),
+            image_width=int(parsed_data["image_width"]),
+            image_height=int(parsed_data["image_height"]),
+            processing_time_ms=processing_time_ms,
+            omniparser_version=runtime.omniparser_version,
+            cli_version=CLI_VERSION,
+            cache_hit=cache_hit,
+            extra={
+                "box_threshold": args.confidence_threshold,
+                "edge": args.edge,
+                "top_k": int(args.top_k),
+                "device": runtime.effective_device,
+                "config_path": str(project_config.path) if project_config else None,
+                "image_sha256": image_sha256,
+                "config_sha256": config_sha256,
+                "annotated_path": str(debug_path) if debug_path else None,
+            },
+        ),
+        "locate": {
+            "query": str(args.query),
+            "edge": str(args.edge),
+            "resolved": resolved,
+            "candidates": candidates,
+            "total_candidates": len(ranked_raw),
+        },
+    }
+    _write_json_stdout(payload, response_context=response_context)
+    return 0
+
+
 def _cmd_crop(
     args: argparse.Namespace,
     runtime: OmniRuntime,
@@ -1311,6 +1586,329 @@ def _cmd_crop(
             "output_path": str(output_path) if output_path else None,
             "output_width": cropped.size[0],
             "output_height": cropped.size[1],
+        },
+    }
+    _write_json_stdout(payload, response_context=response_context)
+    return 0
+
+
+def _cmd_debug(
+    args: argparse.Namespace,
+    runtime: OmniRuntime,
+    logger: Console,
+    project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
+) -> int:
+    start_ms = _perf_ms()
+    image_path = _resolve_image_path(args.image)
+    image_sha256 = _sha256_file(image_path)
+
+    parsed_data, cache_hit, logs = runtime.parse_image(
+        image_path=image_path,
+        box_threshold=args.confidence_threshold,
+        use_cache=args.cache,
+    )
+    if args.verbose and logs:
+        logger.debug(logs.rstrip())
+
+    elements = list(parsed_data["elements"])
+    if args.max_elements > 0:
+        elements = elements[: int(args.max_elements)]
+
+    output_path = Path(args.output).expanduser().resolve()
+    debug_path = _save_label_debug_image(
+        image_path=image_path,
+        elements=elements,
+        output_path=output_path,
+        max_elements=max(1, int(args.max_elements or len(elements))),
+    )
+
+    processing_time_ms = int(round(_perf_ms() - start_ms))
+    payload = {
+        "status": "success",
+        "error": None,
+        "meta": _meta(
+            response_context=response_context,
+            image_path=str(image_path),
+            image_width=int(parsed_data["image_width"]),
+            image_height=int(parsed_data["image_height"]),
+            processing_time_ms=processing_time_ms,
+            omniparser_version=runtime.omniparser_version,
+            cli_version=CLI_VERSION,
+            cache_hit=cache_hit,
+            extra={
+                "box_threshold": args.confidence_threshold,
+                "config_path": str(project_config.path) if project_config else None,
+                "image_sha256": image_sha256,
+                "config_sha256": config_sha256,
+                "output_path": str(debug_path),
+                "elements_rendered": len(elements),
+            },
+        ),
+        "debug": {
+            "output_path": str(debug_path),
+            "elements_rendered": len(elements),
+            "image_width": int(parsed_data["image_width"]),
+            "image_height": int(parsed_data["image_height"]),
+        },
+    }
+    _write_json_stdout(payload, response_context=response_context)
+    return 0
+
+
+def _cmd_match(
+    args: argparse.Namespace,
+    runtime: OmniRuntime,
+    logger: Console,
+    project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
+) -> int:
+    start_ms = _perf_ms()
+    if int(args.top_k) <= 0:
+        raise UserInputError("--top-k must be >= 1.")
+
+    image1_path = _resolve_image_path(args.image1)
+    image2_path = _resolve_image_path(args.image2)
+    image1_sha256 = _sha256_file(image1_path)
+    image2_sha256 = _sha256_file(image2_path)
+
+    parsed1, cache_hit1, logs1 = runtime.parse_image(
+        image_path=image1_path,
+        box_threshold=args.confidence_threshold,
+        use_cache=args.cache,
+    )
+    parsed2, cache_hit2, logs2 = runtime.parse_image(
+        image_path=image2_path,
+        box_threshold=args.confidence_threshold,
+        use_cache=args.cache,
+    )
+    if args.verbose and logs1:
+        logger.debug(logs1.rstrip())
+    if args.verbose and logs2:
+        logger.debug(logs2.rstrip())
+
+    elements1 = list(parsed1["elements"])
+    elements2 = list(parsed2["elements"])
+
+    source_resolved = _resolve_element_by_spec(
+        spec=args.query,
+        elements=elements1,
+        image_width=int(parsed1["image_width"]),
+        image_height=int(parsed1["image_height"]),
+        edge="center",
+        role="--query (image1)",
+        project_config=project_config,
+    )
+    source_index = int(source_resolved.get("element_index", -1))
+    if source_index < 0 or source_index >= len(elements1):
+        raise UserInputError(
+            "--query must resolve to an element in image1 for match mode."
+        )
+    source = elements1[source_index]
+
+    query_scores_image2 = {
+        int(candidate["element"]["index"]): float(candidate["score"])
+        for candidate in rank_reference_candidates(
+            spec=args.query,
+            elements=elements2,
+            image_width=int(parsed2["image_width"]),
+            image_height=int(parsed2["image_height"]),
+            role="--query (image2)",
+        )
+    }
+
+    anchor_specs = list(args.anchor or [])
+    anchor_pairs: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    warnings: list[str] = []
+    for anchor_spec in anchor_specs:
+        try:
+            anchor1 = _resolve_element_by_spec(
+                spec=anchor_spec,
+                elements=elements1,
+                image_width=int(parsed1["image_width"]),
+                image_height=int(parsed1["image_height"]),
+                edge="center",
+                role=f"--anchor {anchor_spec} (image1)",
+                project_config=project_config,
+            )
+            anchor2 = _resolve_element_by_spec(
+                spec=anchor_spec,
+                elements=elements2,
+                image_width=int(parsed2["image_width"]),
+                image_height=int(parsed2["image_height"]),
+                edge="center",
+                role=f"--anchor {anchor_spec} (image2)",
+                project_config=project_config,
+            )
+            a1 = (float(anchor1["resolved_point"]["x"]), float(anchor1["resolved_point"]["y"]))
+            a2 = (float(anchor2["resolved_point"]["x"]), float(anchor2["resolved_point"]["y"]))
+            anchor_pairs.append((a1, a2))
+        except Exception as exc:
+            warnings.append(f"anchor '{anchor_spec}' could not be resolved in both images: {exc}")
+
+    source_label_norm = _normalize_text(str(source.get("label", "")))
+    source_type = str(source.get("element_type", "unknown"))
+    source_bbox = source["bbox"]
+    src_nx, src_ny = _normalized_center(
+        source_bbox,
+        int(parsed1["image_width"]),
+        int(parsed1["image_height"]),
+    )
+
+    scored_candidates: list[dict[str, Any]] = []
+    for candidate in elements2:
+        candidate_label_norm = _normalize_text(str(candidate.get("label", "")))
+        label_similarity = difflib.SequenceMatcher(None, source_label_norm, candidate_label_norm).ratio()
+        if source_label_norm and source_label_norm in candidate_label_norm:
+            label_similarity = max(label_similarity, 0.95)
+
+        type_score = 1.0 if str(candidate.get("element_type", "unknown")) == source_type else 0.0
+        size_score = _size_similarity(source_bbox, candidate["bbox"])
+        cand_nx, cand_ny = _normalized_center(
+            candidate["bbox"],
+            int(parsed2["image_width"]),
+            int(parsed2["image_height"]),
+        )
+        position_score = max(0.0, 1.0 - math.hypot(cand_nx - src_nx, cand_ny - src_ny))
+
+        anchor_score = None
+        if anchor_pairs:
+            anchor_dist_scores: list[float] = []
+            src_cx, src_cy = _bbox_point_for_edge(source_bbox, edge="center")
+            cand_cx, cand_cy = _bbox_point_for_edge(candidate["bbox"], edge="center")
+            for (a1x, a1y), (a2x, a2y) in anchor_pairs:
+                vec1 = (float(src_cx) - a1x, float(src_cy) - a1y)
+                vec2 = (float(cand_cx) - a2x, float(cand_cy) - a2y)
+                delta = math.hypot(vec2[0] - vec1[0], vec2[1] - vec1[1])
+                max_dim = math.hypot(max(1, int(parsed2["image_width"])), max(1, int(parsed2["image_height"])))
+                anchor_dist_scores.append(max(0.0, 1.0 - (delta / max_dim)))
+            anchor_score = sum(anchor_dist_scores) / max(1, len(anchor_dist_scores))
+
+        query_score = float(query_scores_image2.get(int(candidate["index"]), 0.0))
+
+        weighted = 0.0
+        total_weight = 0.0
+
+        weighted += query_score * 0.30
+        total_weight += 0.30
+
+        weighted += label_similarity * 0.25
+        total_weight += 0.25
+
+        if anchor_score is not None:
+            weighted += anchor_score * 0.20
+            total_weight += 0.20
+
+        weighted += position_score * 0.15
+        total_weight += 0.15
+
+        weighted += size_score * 0.05
+        total_weight += 0.05
+
+        weighted += type_score * 0.05
+        total_weight += 0.05
+
+        match_score = weighted / total_weight if total_weight > 0 else 0.0
+
+        scored_candidates.append(
+            {
+                "index": int(candidate["index"]),
+                "label": str(candidate.get("label", "")),
+                "element_type": str(candidate.get("element_type", "unknown")),
+                "confidence": float(candidate.get("confidence", 0.0)),
+                "bbox": candidate["bbox"],
+                "match_score": float(match_score),
+                "query_score": float(query_score),
+                "label_similarity": float(label_similarity),
+                "type_score": float(type_score),
+                "size_score": float(size_score),
+                "position_score": float(position_score),
+                "anchor_score": float(anchor_score) if anchor_score is not None else None,
+            }
+        )
+
+    scored_candidates.sort(
+        key=lambda item: (-item["match_score"], -item["query_score"], int(item["index"]))
+    )
+
+    if not scored_candidates:
+        raise ProcessingError("Unable to score candidates in image2.")
+
+    best = scored_candidates[0]
+    if float(best["match_score"]) < float(args.min_score):
+        raise ProcessingError(
+            f"Best candidate score {best['match_score']:.3f} is below --min-score {float(args.min_score):.3f}."
+        )
+
+    source_center = _bbox_point_for_edge(source_bbox, edge="center")
+    best_center = _bbox_point_for_edge(best["bbox"], edge="center")
+    delta = {
+        "x": int(best_center[0] - source_center[0]),
+        "y": int(best_center[1] - source_center[1]),
+        "width": int(best["bbox"]["width"] - source_bbox["width"]),
+        "height": int(best["bbox"]["height"] - source_bbox["height"]),
+    }
+
+    debug_path = None
+    if args.save_annotated:
+        debug_path = _match_debug_visual(
+            image1_path=image1_path,
+            image2_path=image2_path,
+            source=source,
+            candidates=scored_candidates,
+            output_path=Path(args.save_annotated).expanduser().resolve(),
+            top_k=int(args.top_k),
+        )
+
+    processing_time_ms = int(round(_perf_ms() - start_ms))
+    payload = {
+        "status": "success",
+        "error": None,
+        "warnings": warnings,
+        "meta": _meta(
+            response_context=response_context,
+            image_path=str(image1_path),
+            image_width=int(parsed1["image_width"]),
+            image_height=int(parsed1["image_height"]),
+            processing_time_ms=processing_time_ms,
+            omniparser_version=runtime.omniparser_version,
+            cli_version=CLI_VERSION,
+            cache_hit=bool(cache_hit1 and cache_hit2),
+            extra={
+                "image_path_2": str(image2_path),
+                "image_width_2": int(parsed2["image_width"]),
+                "image_height_2": int(parsed2["image_height"]),
+                "query": str(args.query),
+                "top_k": int(args.top_k),
+                "min_score": float(args.min_score),
+                "anchors_requested": anchor_specs,
+                "anchors_resolved": len(anchor_pairs),
+                "config_path": str(project_config.path) if project_config else None,
+                "image_sha256": image1_sha256,
+                "image_sha256_2": image2_sha256,
+                "config_sha256": config_sha256,
+                "annotated_path": str(debug_path) if debug_path else None,
+            },
+        ),
+        "match": {
+            "query": str(args.query),
+            "source": {
+                "image": str(image1_path),
+                "index": int(source["index"]),
+                "label": str(source.get("label", "")),
+                "element_type": str(source.get("element_type", "unknown")),
+                "confidence": float(source.get("confidence", 0.0)),
+                "bbox": source_bbox,
+            },
+            "target": {
+                "image": str(image2_path),
+                **best,
+            },
+            "delta": delta,
+            "candidates": scored_candidates[: max(1, int(args.top_k))],
+            "total_candidates": len(scored_candidates),
         },
     }
     _write_json_stdout(payload, response_context=response_context)
@@ -1507,6 +2105,9 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         "omni: Production CLI wrapper for OmniParser\n\n"
         "Subcommands:\n"
         "  parse    Parse a screenshot into structured UI elements. Example: omni parse screen.png --quiet\n"
+        "  debug    Render a labeled debug image of detections. Example: omni debug screen.png -o /tmp/debug.png\n"
+        "  locate   Resolve a label/selector to element candidates. Example: omni locate screen.png --query \"save|side:right\"\n"
+        "  match    Match one logical UI element across two screenshots. Example: omni match before.png after.png --query \"save\"\n"
         "  measure  Measure pixel distances between points/elements. Example: omni measure screen.png --from element:0 --to element:1\n"
         "  crop     Extract a screenshot region. Example: omni crop screen.png --region 0,0,200,200 -o crop.png\n"
         "  diff     Compare two screenshots structurally. Example: omni diff before.png after.png --tolerance 5\n"
@@ -1689,6 +2290,136 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         help="Include raw OmniParser output fields in JSON response.",
     )
 
+    debug_help = (
+        "Create a visual debug artifact with element boxes and text labels.\n\n"
+        "Examples:\n"
+        "  omni debug screen.png -o /tmp/debug.png --quiet\n"
+        "  omni debug screen.png -o /tmp/debug.png --max-elements 120\n"
+    )
+    debug_parser = subparsers.add_parser(
+        "debug",
+        help="Render labeled visual debug output for OmniParser detections.",
+        epilog=debug_help,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    add_trailing_global_flags(debug_parser)
+    debug_parser.add_argument("image", help="Path to screenshot image.")
+    debug_parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        help="Output path for debug image.",
+    )
+    debug_parser.add_argument(
+        "--max-elements",
+        type=int,
+        default=200,
+        help="Max number of elements to render (default: 200).",
+    )
+    debug_parser.add_argument(
+        "--confidence-threshold",
+        type=float,
+        default=DEFAULT_BOX_THRESHOLD,
+        help="Detection threshold for debug parse.",
+    )
+
+    locate_help = (
+        "Resolve an element reference with optional proximity hints.\n\n"
+        "Query examples:\n"
+        "  omni locate screen.png --query \"save\"\n"
+        "  omni locate screen.png --query \"label:save|side:right|near:1400,900\"\n"
+        "  omni locate screen.png --query \"*|near:300,200|within:250\"\n\n"
+        "Hints:\n"
+        "  near:x,y     Prefer elements near this point\n"
+        "  side:<side>  Prefer elements near left|right|top|bottom|center\n"
+        "  within:px    Require candidate center within this radius from near point\n"
+    )
+    locate_parser = subparsers.add_parser(
+        "locate",
+        help="Find best element matches by label and proximity hints.",
+        epilog=locate_help,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    add_trailing_global_flags(locate_parser)
+    locate_parser.add_argument("image", help="Path to screenshot image.")
+    locate_parser.add_argument(
+        "--query",
+        required=True,
+        help="Reference query (label, element:<idx>, region:<name>, x,y, with optional |near:|side:|within: hints).",
+    )
+    locate_parser.add_argument(
+        "--edge",
+        choices=list(EDGE_CHOICES),
+        default="center",
+        help="Edge/anchor used for resolved coordinates (default: center).",
+    )
+    locate_parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="Max candidate matches to return (default: 5).",
+    )
+    locate_parser.add_argument(
+        "--save-annotated",
+        help="Save candidate-ranked debug image to this path.",
+    )
+    locate_parser.add_argument(
+        "--confidence-threshold",
+        type=float,
+        default=DEFAULT_BOX_THRESHOLD,
+        help="Detection threshold used while resolving matches.",
+    )
+
+    match_help = (
+        "Match one logical UI element across two screenshots using label + proximity + geometry scoring.\n\n"
+        "Examples:\n"
+        "  omni match before.png after.png --query \"save\" --quiet\n"
+        "  omni match before.png after.png --query \"save|side:right|near:1400,900\" --anchor \"region:sidebar\"\n"
+        "  omni match before.png after.png --query \"label:*|near:300,200\" --top-k 10 --save-annotated /tmp/match.png\n"
+    )
+    match_parser = subparsers.add_parser(
+        "match",
+        help="Match the same UI element across two screenshots.",
+        epilog=match_help,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    add_trailing_global_flags(match_parser)
+    match_parser.add_argument("image1", help="Reference screenshot path.")
+    match_parser.add_argument("image2", help="Comparison screenshot path.")
+    match_parser.add_argument(
+        "--query",
+        required=True,
+        help="Selector used to resolve source in image1 and bias candidates in image2.",
+    )
+    match_parser.add_argument(
+        "--anchor",
+        action="append",
+        default=[],
+        help="Optional repeatable anchor selector resolved in both images to improve matching robustness.",
+    )
+    match_parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="Number of ranked candidates to return (default: 5).",
+    )
+    match_parser.add_argument(
+        "--min-score",
+        type=float,
+        default=0.25,
+        help="Fail if best match score is below this threshold (default: 0.25).",
+    )
+    match_parser.add_argument(
+        "--save-annotated",
+        help="Save side-by-side match debug image.",
+    )
+    match_parser.add_argument(
+        "--confidence-threshold",
+        type=float,
+        default=DEFAULT_BOX_THRESHOLD,
+        help="Detection threshold used for both images.",
+    )
+
     measure_help = (
         "Examples:\n"
         "  omni measure screen.png --from 120,300 --to 450,300\n"
@@ -1835,12 +2566,27 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
     help_parser.add_argument(
         "help_command",
         nargs="?",
-        choices=["parse", "measure", "crop", "diff", "info", "check", "overlay", "help"],
+        choices=[
+            "parse",
+            "debug",
+            "locate",
+            "match",
+            "measure",
+            "crop",
+            "diff",
+            "info",
+            "check",
+            "overlay",
+            "help",
+        ],
         help="Subcommand to show help for.",
     )
 
     subparser_map = {
         "parse": parse_parser,
+        "debug": debug_parser,
+        "locate": locate_parser,
+        "match": match_parser,
         "measure": measure_parser,
         "crop": crop_parser,
         "diff": diff_parser,
@@ -2002,6 +2748,12 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "parse":
             return _cmd_parse(args, runtime, logger, project_config, response_context, config_sha256)
+        if args.command == "debug":
+            return _cmd_debug(args, runtime, logger, project_config, response_context, config_sha256)
+        if args.command == "locate":
+            return _cmd_locate(args, runtime, logger, project_config, response_context, config_sha256)
+        if args.command == "match":
+            return _cmd_match(args, runtime, logger, project_config, response_context, config_sha256)
         if args.command == "measure":
             return _cmd_measure(args, runtime, logger, project_config, response_context, config_sha256)
         if args.command == "crop":
