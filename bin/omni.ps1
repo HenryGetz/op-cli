@@ -76,7 +76,7 @@ function Find-RuntimeRoot {
 $installEnvPath = Get-InstallEnvPath
 $installValues = Read-InstallEnv -Path $installEnvPath
 
-foreach ($key in @("OMNI_CLI_ROOT", "OMNI_ROOT", "OMNIPARSER_ROOT", "OMNI_RUNTIME_ROOT", "OMNI_PYTHON", "OMNI_MODEL_DIR")) {
+foreach ($key in @("OMNI_CLI_ROOT", "OMNI_ROOT", "OMNIPARSER_ROOT", "OMNI_RUNTIME_ROOT", "UIED_ROOT", "OMNI_PYTHON", "OMNI_MODEL_DIR")) {
     if (-not (Get-Item "Env:$key" -ErrorAction SilentlyContinue) -and $installValues.ContainsKey($key)) {
         Set-Item -Path "Env:$key" -Value $installValues[$key]
     }
@@ -85,6 +85,7 @@ foreach ($key in @("OMNI_CLI_ROOT", "OMNI_ROOT", "OMNIPARSER_ROOT", "OMNI_RUNTIM
 if ($RemainingArgs.Count -gt 0 -and $RemainingArgs[0] -eq "setup") {
     $setCliRoot = $env:OMNI_CLI_ROOT
     $setRuntimeRoot = if ($env:OMNIPARSER_ROOT) { $env:OMNIPARSER_ROOT } else { $env:OMNI_RUNTIME_ROOT }
+    $setUiedRoot = $env:UIED_ROOT
     $setPython = $env:OMNI_PYTHON
     $showOnly = $false
     $clearOnly = $false
@@ -107,6 +108,11 @@ if ($RemainingArgs.Count -gt 0 -and $RemainingArgs[0] -eq "setup") {
                 $i++
                 if ($i -ge $RemainingArgs.Count) { throw "omni setup: --python requires a value" }
                 $setPython = $RemainingArgs[$i]
+            }
+            "--uied-root" {
+                $i++
+                if ($i -ge $RemainingArgs.Count) { throw "omni setup: --uied-root requires a value" }
+                $setUiedRoot = $RemainingArgs[$i]
             }
             "--show" { $showOnly = $true }
             "--clear" { $clearOnly = $true }
@@ -161,6 +167,15 @@ if ($RemainingArgs.Count -gt 0 -and $RemainingArgs[0] -eq "setup") {
         }
     }
 
+    $resolvedUied = $null
+    if ($setUiedRoot) {
+        $resolvedUied = [System.IO.Path]::GetFullPath($setUiedRoot)
+        if (-not (Test-Path -LiteralPath (Join-Path $resolvedUied "detect_compo\ip_region_proposal.py") -PathType Leaf) -or
+            -not (Test-Path -LiteralPath (Join-Path $resolvedUied "detect_merge\merge.py") -PathType Leaf)) {
+            throw "omni setup: invalid --uied-root (missing detect_compo/ip_region_proposal.py or detect_merge/merge.py): $resolvedUied"
+        }
+    }
+
     $installDir = Split-Path -Parent $installEnvPath
     New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 
@@ -168,6 +183,9 @@ if ($RemainingArgs.Count -gt 0 -and $RemainingArgs[0] -eq "setup") {
         "OMNI_CLI_ROOT='$resolvedCli'",
         "OMNIPARSER_ROOT='$resolvedRuntime'"
     )
+    if ($resolvedUied) {
+        $lines += "UIED_ROOT='$resolvedUied'"
+    }
     if ($resolvedPython) {
         $lines += "OMNI_PYTHON='$resolvedPython'"
     }
@@ -176,6 +194,9 @@ if ($RemainingArgs.Count -gt 0 -and $RemainingArgs[0] -eq "setup") {
     Write-Output "Saved persistent omni config to $installEnvPath"
     Write-Output "OMNI_CLI_ROOT=$resolvedCli"
     Write-Output "OMNIPARSER_ROOT=$resolvedRuntime"
+    if ($resolvedUied) {
+        Write-Output "UIED_ROOT=$resolvedUied"
+    }
     if ($resolvedPython) {
         Write-Output "OMNI_PYTHON=$resolvedPython"
     }
@@ -264,4 +285,3 @@ else {
 
 & $pythonBin $cliEntry @RemainingArgs
 exit $LASTEXITCODE
-

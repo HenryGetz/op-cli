@@ -32,12 +32,12 @@ fi
 
 setup_usage() {
   cat <<'EOF'
-Usage: omni setup [--cli-root <path>] [--runtime-root <path>] [--python <path>] [--show] [--clear]
+Usage: omni setup [--cli-root <path>] [--runtime-root <path>] [--uied-root <path>] [--python <path>] [--show] [--clear]
 
 Writes persistent config to ~/.config/omni/install.env (or $OMNI_INSTALL_ENV).
 
 Examples:
-  omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser
+  omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
   omni setup --show
   omni setup --clear
 EOF
@@ -52,6 +52,7 @@ if [ "${1:-}" = "setup" ]; then
 
   setup_cli_root="${OMNI_CLI_ROOT:-}"
   setup_runtime_root="${OMNIPARSER_ROOT:-${OMNI_RUNTIME_ROOT:-}}"
+  setup_uied_root="${UIED_ROOT:-}"
   setup_python="${OMNI_PYTHON:-}"
   setup_show=0
   setup_clear=0
@@ -72,6 +73,11 @@ if [ "${1:-}" = "setup" ]; then
         shift
         [ "$#" -gt 0 ] || { echo "omni setup: --python requires a value" >&2; exit 1; }
         setup_python="$1"
+        ;;
+      --uied-root)
+        shift
+        [ "$#" -gt 0 ] || { echo "omni setup: --uied-root requires a value" >&2; exit 1; }
+        setup_uied_root="$1"
         ;;
       --show)
         setup_show=1
@@ -136,6 +142,14 @@ if [ "${1:-}" = "setup" ]; then
     fi
   fi
 
+  if [ -n "$setup_uied_root" ]; then
+    setup_uied_root="$(cd "$setup_uied_root" 2>/dev/null && pwd -P || true)"
+    if [ -z "$setup_uied_root" ] || [ ! -f "$setup_uied_root/detect_compo/ip_region_proposal.py" ] || [ ! -f "$setup_uied_root/detect_merge/merge.py" ]; then
+      echo "omni setup: invalid --uied-root (missing detect_compo/ip_region_proposal.py or detect_merge/merge.py)." >&2
+      exit 1
+    fi
+  fi
+
   install_dir="$(dirname "$install_env")"
   mkdir -p "$install_dir"
 
@@ -145,6 +159,10 @@ if [ "${1:-}" = "setup" ]; then
   {
     printf "OMNI_CLI_ROOT='%s'\n" "$escaped_cli"
     printf "OMNIPARSER_ROOT='%s'\n" "$escaped_runtime"
+    if [ -n "$setup_uied_root" ]; then
+      escaped_uied="$(shell_escape_single "$setup_uied_root")"
+      printf "UIED_ROOT='%s'\n" "$escaped_uied"
+    fi
     if [ -n "$setup_python" ]; then
       escaped_python="$(shell_escape_single "$setup_python")"
       printf "OMNI_PYTHON='%s'\n" "$escaped_python"
@@ -154,6 +172,9 @@ if [ "${1:-}" = "setup" ]; then
   echo "Saved persistent omni config to $install_env"
   echo "OMNI_CLI_ROOT=$setup_cli_root"
   echo "OMNIPARSER_ROOT=$setup_runtime_root"
+  if [ -n "$setup_uied_root" ]; then
+    echo "UIED_ROOT=$setup_uied_root"
+  fi
   if [ -n "$setup_python" ]; then
     echo "OMNI_PYTHON=$setup_python"
   fi

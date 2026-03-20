@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Production CLI wrapper for OmniParser."""
+"""Production CLI wrapper for OmniParser and UIED."""
 
 from __future__ import annotations
 
@@ -15,8 +15,10 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass
@@ -67,6 +69,13 @@ COMMON_RUNTIME_ROOTS = (
     "~/OmniParser",
     "~/src/OmniParser",
     "~/projects/OmniParser",
+)
+
+COMMON_UIED_ROOTS = (
+    "~/ai/UIED",
+    "~/UIED",
+    "~/src/UIED",
+    "~/projects/UIED",
 )
 
 
@@ -461,6 +470,10 @@ def _is_runtime_root(path: Path) -> bool:
     return (path / "util" / "utils.py").is_file()
 
 
+def _is_uied_root(path: Path) -> bool:
+    return (path / "detect_compo" / "ip_region_proposal.py").is_file() and (path / "detect_merge" / "merge.py").is_file()
+
+
 def _resolve_runtime_root(cli_root: Path, runtime_override: str | None) -> Path:
     if runtime_override:
         candidate = Path(runtime_override).expanduser().resolve()
@@ -505,6 +518,49 @@ def _resolve_runtime_root(cli_root: Path, runtime_override: str | None) -> Path:
             return candidate
 
     return cli_root
+
+
+def _resolve_uied_root(cli_root: Path, uied_override: str | None) -> Path:
+    if uied_override:
+        candidate = Path(uied_override).expanduser().resolve()
+        if not _is_uied_root(candidate):
+            raise UserInputError(
+                "Invalid --uied-root. Expected a directory containing detect_compo/ip_region_proposal.py; "
+                f"got: {candidate}"
+            )
+        return candidate
+
+    env_override = os.environ.get("UIED_ROOT")
+    if env_override:
+        candidate = Path(env_override).expanduser().resolve()
+        if not _is_uied_root(candidate):
+            raise UserInputError(
+                "UIED_ROOT is set but invalid. Expected detect_compo/ip_region_proposal.py under that directory; "
+                f"got: {candidate}"
+            )
+        return candidate
+
+    candidates: list[Path] = []
+    candidates.extend(
+        [
+            (cli_root.parent / "UIED").resolve(),
+            (cli_root / "UIED").resolve(),
+            (Path.home() / "ai" / "UIED").resolve(),
+        ]
+    )
+    candidates.extend(Path(raw).expanduser().resolve() for raw in COMMON_UIED_ROOTS)
+
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if _is_uied_root(candidate):
+            return candidate
+
+    raise UserInputError(
+        "Unable to locate UIED root. Install UIED and set UIED_ROOT or pass --uied-root <path>."
+    )
 
 
 def _config_sha256(project_config: ProjectConfig | None) -> str | None:
@@ -627,16 +683,26 @@ class OmniRuntime:
         requested_device: str,
         logger: Console,
         omniparser_version: str,
+        engine: str,
+        uied_root: Path | None,
+        uied_text_engine: str,
     ) -> None:
         self.repo_root = repo_root
         self.model_dir = model_dir
         self.requested_device = requested_device
         self.logger = logger
         self.omniparser_version = omniparser_version
+        self.engine = engine
+        self.uied_root = uied_root
+        self.uied_text_engine = uied_text_engine
 
         self._omni_utils: Any = None
         self._som_model: Any = None
         self._caption_model_processor: Any = None
+        self._uied_ip: Any = None
+        self._uied_text: Any = None
+        self._uied_merge: Any = None
+        self._uied_paddle_ocr: Any = None
         self.effective_device = "cpu"
 
     def _resolve_model_paths(self) -> tuple[Path, Path]:
@@ -727,10 +793,23 @@ class OmniRuntime:
         cache_payload_key = {
             "image_hash": image_hash,
             "box_threshold": round(box_threshold, 6),
-            "model_dir": str(self.model_dir),
-            "requested_device": self.requested_device,
+            "engine": self.engine,
             "omniparser_version": self.omniparser_version,
         }
+        if self.engine == "uied":
+            cache_payload_key.update(
+                {
+                    "uied_root": str(self.uied_root) if self.uied_root else None,
+                    "uied_text_engine": self.uied_text_engine,
+                }
+            )
+        else:
+            cache_payload_key.update(
+                {
+                    "model_dir": str(self.model_dir),
+                    "requested_device": self.requested_device,
+                }
+            )
         cache_key = hashlib.sha256(
             json.dumps(cache_payload_key, sort_keys=True).encode("utf-8")
         ).hexdigest()
@@ -743,6 +822,18 @@ class OmniRuntime:
                 with cache_path.open("w", encoding="utf-8") as handle:
                     json.dump(data, handle)
             return data, True, ""
+
+        if self.engine == "uied":
+            parsed_data, logs = self._captured_call(
+                self._run_parse_uied,
+                image_path=image_path,
+                box_threshold=box_threshold,
+            )
+            _ensure_elements_have_ids(parsed_data)
+            if use_cache:
+                with cache_path.open("w", encoding="utf-8") as handle:
+                    json.dump(parsed_data, handle)
+            return parsed_data, False, logs
 
         model_logs = self._ensure_loaded()
 
@@ -886,6 +977,330 @@ class OmniRuntime:
                 json.dump(parsed_data, handle)
 
         return parsed_data, False, logs
+
+    def _ensure_uied_loaded(self) -> None:
+        if self._uied_ip is not None:
+            return
+        if self.uied_root is None:
+            raise ProcessingError("UIED engine selected but UIED root was not resolved.")
+        if str(self.uied_root) not in sys.path:
+            sys.path.insert(0, str(self.uied_root))
+
+        import time as time_module
+
+        if not hasattr(time_module, "clock"):
+            setattr(time_module, "clock", time_module.perf_counter)
+
+        existing_config_module = sys.modules.get("config")
+        removed_config_paths: list[str] = []
+        if existing_config_module is not None and not hasattr(existing_config_module, "__path__"):
+            # UIED expects a package named `config`, while this CLI also has a module named `config`.
+            # Keep a backup alias, remove the conflicting module entry and temporarily hide the module path
+            # so UIED's `config/CONFIG_UIED.py` can be imported as a package.
+            sys.modules.setdefault("omni_cli_config", existing_config_module)
+            config_file = getattr(existing_config_module, "__file__", None)
+            if config_file:
+                config_dir = str(Path(config_file).resolve().parent)
+                removed_config_paths = [entry for entry in sys.path if entry == config_dir]
+                sys.path[:] = [entry for entry in sys.path if entry != config_dir]
+            del sys.modules["config"]
+
+        try:
+            self._uied_ip = importlib.import_module("detect_compo.ip_region_proposal")
+            self._uied_merge = importlib.import_module("detect_merge.merge")
+            if self.uied_text_engine == "google":
+                self._uied_text = importlib.import_module("detect_text.text_detection")
+        except ModuleNotFoundError as exc:
+            raise ProcessingError(
+                "Could not import UIED modules. Set --uied-root <path> or UIED_ROOT to your UIED directory."
+            ) from exc
+        finally:
+            for entry in reversed(removed_config_paths):
+                sys.path.insert(0, entry)
+
+    def _render_labeled_base64(self, *, image_path: Path, elements: list[dict[str, Any]]) -> str:
+        image = Image.open(image_path).convert("RGB")
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.load_default()
+
+        for element in elements:
+            bbox = element["bbox"]
+            x1 = int(bbox["x"])
+            y1 = int(bbox["y"])
+            x2 = x1 + int(bbox["width"])
+            y2 = y1 + int(bbox["height"])
+
+            element_type = str(element.get("element_type", "unknown"))
+            color = (0, 210, 255) if element_type == "text" else (30, 200, 60)
+            draw.rectangle((x1, y1, x2, y2), outline=color, width=2)
+
+            label = str(element.get("label", "")).replace("\n", " ").strip()
+            if len(label) > 36:
+                label = label[:33] + "..."
+            caption = f"#{element['index']} [{element_type}] {label}"
+            draw.text((x1 + 2, max(0, y1 - 12)), caption, fill=color, font=font)
+
+        output = io.BytesIO()
+        image.save(output, format="PNG")
+        return base64.b64encode(output.getvalue()).decode("ascii")
+
+    def _uied_detect_text_paddle(
+        self,
+        *,
+        input_image_path: Path,
+        output_root: Path,
+        name: str,
+        image_width: int,
+        image_height: int,
+    ) -> dict[str, Any]:
+        from paddleocr import PaddleOCR
+
+        if self._uied_paddle_ocr is None:
+            self._uied_paddle_ocr = PaddleOCR(use_angle_cls=True, lang="en")
+
+        ocr_result = self._uied_paddle_ocr.ocr(str(input_image_path), cls=True)
+        lines_raw: list[Any]
+        if isinstance(ocr_result, list) and len(ocr_result) == 1 and isinstance(ocr_result[0], list):
+            lines_raw = ocr_result[0]
+        elif isinstance(ocr_result, list):
+            lines_raw = ocr_result
+        else:
+            lines_raw = []
+
+        texts: list[dict[str, Any]] = []
+        for idx, line in enumerate(lines_raw):
+            if not isinstance(line, (list, tuple)) or len(line) < 2:
+                continue
+            points = line[0]
+            content_info = line[1]
+            if not isinstance(points, (list, tuple)):
+                continue
+            try:
+                xs = [int(round(float(point[0]))) for point in points]
+                ys = [int(round(float(point[1]))) for point in points]
+            except Exception:
+                continue
+            if not xs or not ys:
+                continue
+
+            content = ""
+            score = None
+            if isinstance(content_info, (list, tuple)) and len(content_info) >= 1:
+                content = str(content_info[0])
+                if len(content_info) > 1:
+                    try:
+                        score = float(content_info[1])
+                    except Exception:
+                        score = None
+            else:
+                content = str(content_info)
+
+            col_min = max(0, min(xs))
+            col_max = max(0, max(xs))
+            row_min = max(0, min(ys))
+            row_max = max(0, max(ys))
+            width = max(1, col_max - col_min)
+            height = max(1, row_max - row_min)
+
+            texts.append(
+                {
+                    "id": idx,
+                    "content": content,
+                    "column_min": col_min,
+                    "row_min": row_min,
+                    "column_max": col_max,
+                    "row_max": row_max,
+                    "width": width,
+                    "height": height,
+                    "score": score,
+                }
+            )
+
+        ocr_root = output_root / "ocr"
+        ocr_root.mkdir(parents=True, exist_ok=True)
+        image_shape = [int(image_height), int(image_width), 3]
+        payload = {
+            "img_shape": image_shape,
+            "texts": texts,
+        }
+        ocr_json_path = ocr_root / f"{name}.json"
+        ocr_json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return payload
+
+    def _run_parse_uied(self, *, image_path: Path, box_threshold: float) -> dict[str, Any]:
+        self._ensure_uied_loaded()
+
+        pil_image = _load_image_validated(image_path).convert("RGB")
+        image_width, image_height = pil_image.size
+
+        key_params = {
+            "min-grad": 3,
+            "ffl-block": 5,
+            "min-ele-area": 25,
+            "merge-contained-ele": True,
+            "merge-line-to-paragraph": False,
+            "remove-bar": True,
+        }
+
+        workspace = Path(tempfile.mkdtemp(prefix="omni-uied-"))
+        input_image_path = workspace / "input.png"
+        output_root = workspace / "output"
+        output_root.mkdir(parents=True, exist_ok=True)
+
+        pil_image.save(input_image_path)
+        name = input_image_path.stem
+
+        raw_text_json: dict[str, Any] | None = None
+        raw_merge_json: dict[str, Any] | None = None
+        raw_compo_json: dict[str, Any] | None = None
+        elements: list[dict[str, Any]] = []
+
+        try:
+            self._uied_ip.compo_detection(
+                str(input_image_path),
+                str(output_root),
+                key_params,
+                resize_by_height=image_height,
+                classifier=None,
+                show=False,
+            )
+
+            compo_json_path = output_root / "ip" / f"{name}.json"
+            if not compo_json_path.exists():
+                raise ProcessingError(f"UIED component output missing: {compo_json_path}")
+            raw_compo_json = json.loads(compo_json_path.read_text(encoding="utf-8"))
+
+            merge_json_path = output_root / "merge" / f"{name}.json"
+            if self.uied_text_engine != "none":
+                if self.uied_text_engine == "paddle":
+                    raw_text_json = self._uied_detect_text_paddle(
+                        input_image_path=input_image_path,
+                        output_root=output_root,
+                        name=name,
+                        image_width=image_width,
+                        image_height=image_height,
+                    )
+                else:
+                    if self._uied_text is None:
+                        raise ProcessingError("UIED text module is not loaded.")
+                    self._uied_text.text_detection(
+                        input_file=str(input_image_path),
+                        output_file=str(output_root),
+                        show=False,
+                        method=self.uied_text_engine,
+                    )
+                text_json_path = output_root / "ocr" / f"{name}.json"
+                if not text_json_path.exists():
+                    raise ProcessingError(f"UIED OCR output missing: {text_json_path}")
+                if raw_text_json is None:
+                    raw_text_json = json.loads(text_json_path.read_text(encoding="utf-8"))
+
+                (output_root / "merge").mkdir(parents=True, exist_ok=True)
+                self._uied_merge.merge(
+                    str(input_image_path),
+                    str(compo_json_path),
+                    str(text_json_path),
+                    str(output_root / "merge"),
+                    is_remove_bar=bool(key_params["remove-bar"]),
+                    is_paragraph=bool(key_params["merge-line-to-paragraph"]),
+                    show=False,
+                )
+                if merge_json_path.exists():
+                    raw_merge_json = json.loads(merge_json_path.read_text(encoding="utf-8"))
+
+            source_compos = []
+            source_tag = "uied-ip"
+            if raw_merge_json and isinstance(raw_merge_json.get("compos"), list):
+                source_compos = list(raw_merge_json["compos"])
+                source_tag = "uied-merge"
+            elif raw_compo_json and isinstance(raw_compo_json.get("compos"), list):
+                source_compos = list(raw_compo_json["compos"])
+
+            normalized_entries: list[tuple[int, int, int, dict[str, Any]]] = []
+            for raw in source_compos:
+                if not isinstance(raw, dict):
+                    continue
+                if "position" in raw and isinstance(raw["position"], dict):
+                    position = raw["position"]
+                    x1 = int(position.get("column_min", 0))
+                    y1 = int(position.get("row_min", 0))
+                    x2 = int(position.get("column_max", x1))
+                    y2 = int(position.get("row_max", y1))
+                else:
+                    x1 = int(raw.get("column_min", 0))
+                    y1 = int(raw.get("row_min", 0))
+                    x2 = int(raw.get("column_max", x1))
+                    y2 = int(raw.get("row_max", y1))
+
+                width = max(1, x2 - x1)
+                height = max(1, y2 - y1)
+                class_name = str(raw.get("class", "Compo"))
+                text_content = str(raw.get("text_content", "")).strip()
+                label = text_content if text_content else class_name
+
+                class_lower = class_name.strip().lower()
+                if class_lower == "text":
+                    element_type = "text"
+                elif class_lower == "block":
+                    element_type = "block"
+                else:
+                    element_type = "compo"
+
+                bbox_ratio = [
+                    x1 / max(1, image_width),
+                    y1 / max(1, image_height),
+                    (x1 + width) / max(1, image_width),
+                    (y1 + height) / max(1, image_height),
+                ]
+                element = {
+                    "index": -1,
+                    "element_id": _element_fingerprint(
+                        element_type=element_type,
+                        label=label,
+                        bbox_ratio=bbox_ratio,
+                    ),
+                    "bbox": {
+                        "x": x1,
+                        "y": y1,
+                        "width": width,
+                        "height": height,
+                    },
+                    "label": label,
+                    "element_type": element_type,
+                    "confidence": round(float(raw.get("confidence", 1.0)), 6),
+                    "interactable": element_type not in {"text", "block"},
+                    "source": source_tag,
+                    "bbox_ratio": [round(v, 8) for v in bbox_ratio],
+                    "uied_class": class_name,
+                }
+                normalized_entries.append((int(raw.get("id", 0)), y1, x1, element))
+
+            normalized_entries.sort(key=lambda item: (item[0], item[1], item[2]))
+            for idx, (_, _, _, element) in enumerate(normalized_entries):
+                element["index"] = idx
+                elements.append(element)
+
+            annotated_b64 = self._render_labeled_base64(image_path=image_path, elements=elements)
+
+            return {
+                "image_path": str(image_path),
+                "image_width": image_width,
+                "image_height": image_height,
+                "elements": elements,
+                "annotated_image_base64": annotated_b64,
+                "raw_parsed_content_list": source_compos,
+                "raw_label_coordinates_ratio_xywh": [element["bbox_ratio"] for element in elements],
+                "raw_ocr": raw_text_json or {"texts": [], "bboxes_xyxy_pixel": [], "scores": []},
+                "raw_uied": {
+                    "ip": raw_compo_json,
+                    "merge": raw_merge_json,
+                    "text_engine": self.uied_text_engine,
+                },
+                "box_threshold": box_threshold,
+                "effective_device": "cpu",
+            }
+        finally:
+            shutil.rmtree(workspace, ignore_errors=True)
 
 
 def _save_annotated_image(annotated_b64: str, output_path: Path) -> Path:
@@ -1442,6 +1857,84 @@ def _cmd_doctor(
                 ),
             },
         )
+
+    uied_root: Path | None = None
+    uied_resolution_error: str | None = None
+    try:
+        uied_root = _resolve_uied_root(cli_root, uied_override=getattr(args, "uied_root", None))
+    except Exception as exc:
+        uied_resolution_error = str(exc)
+
+    if uied_root is not None and _is_uied_root(uied_root):
+        add_check(
+            check_id="uied-root",
+            status="pass",
+            message="UIED root is valid.",
+            details={
+                "uied_root": str(uied_root),
+                "source": "--uied-root" if getattr(args, "uied_root", None) else (
+                    "env" if os.environ.get("UIED_ROOT") else "auto-discovery"
+                ),
+            },
+        )
+    else:
+        add_check(
+            check_id="uied-root",
+            status="fail",
+            message="UIED root is invalid or not discoverable.",
+            details={
+                "uied_root": str(uied_root) if uied_root else None,
+                "error": uied_resolution_error,
+                "hint": "Install UIED and set UIED_ROOT or pass --uied-root.",
+            },
+        )
+
+    uied_import_ok = False
+    if uied_root is not None and _is_uied_root(uied_root):
+        inserted = False
+        try:
+            if str(uied_root) not in sys.path:
+                sys.path.insert(0, str(uied_root))
+                inserted = True
+            import time as time_module
+
+            if not hasattr(time_module, "clock"):
+                setattr(time_module, "clock", time_module.perf_counter)
+            existing_config_module = sys.modules.get("config")
+            removed_config_paths: list[str] = []
+            if existing_config_module is not None and not hasattr(existing_config_module, "__path__"):
+                sys.modules.setdefault("omni_cli_config", existing_config_module)
+                config_file = getattr(existing_config_module, "__file__", None)
+                if config_file:
+                    config_dir = str(Path(config_file).resolve().parent)
+                    removed_config_paths = [entry for entry in sys.path if entry == config_dir]
+                    sys.path[:] = [entry for entry in sys.path if entry != config_dir]
+                del sys.modules["config"]
+            importlib.import_module("detect_compo.ip_region_proposal")
+            importlib.import_module("detect_merge.merge")
+            importlib.import_module("detect_text.text_detection")
+            uied_import_ok = True
+            add_check(
+                check_id="uied-imports",
+                status="pass",
+                message="UIED module imports succeeded.",
+                details={"uied_root": str(uied_root)},
+            )
+        except Exception as exc:
+            add_check(
+                check_id="uied-imports",
+                status="fail",
+                message="UIED module imports failed.",
+                details={"uied_root": str(uied_root), "error": str(exc)},
+            )
+        finally:
+            if inserted:
+                try:
+                    sys.path.remove(str(uied_root))
+                except ValueError:
+                    pass
+            for entry in reversed(removed_config_paths):
+                sys.path.insert(0, entry)
     else:
         add_check(
             check_id="runtime-root",
@@ -1514,6 +2007,7 @@ def _cmd_doctor(
     )
 
     parse_smoke: dict[str, Any] | None = None
+    parse_smoke_uied: dict[str, Any] | None = None
     if getattr(args, "image", None):
         try:
             image_path = _resolve_image_path(args.image)
@@ -1535,25 +2029,41 @@ def _cmd_doctor(
                 )
             else:
                 try:
-                    runtime = OmniRuntime(
-                        repo_root=runtime_root,
-                        model_dir=model_dir,
-                        requested_device=args.device,
-                        logger=logger,
-                        omniparser_version=_omniparser_version(runtime_root),
-                    )
                     smoke_start = _perf_ms()
-                    parsed_data, cache_hit, _ = runtime.parse_image(
-                        image_path=image_path,
-                        box_threshold=args.confidence_threshold,
-                        use_cache=args.cache,
+                    smoke_cmd = [
+                        sys.executable,
+                        str((cli_root / "cli" / "omni.py").resolve()),
+                        "parse",
+                        str(image_path),
+                        "--engine",
+                        "omniparser",
+                        "--runtime-root",
+                        str(runtime_root),
+                        "--model-dir",
+                        str(model_dir),
+                        "--confidence-threshold",
+                        str(args.confidence_threshold),
+                        "--quiet",
+                        "--cache" if args.cache else "--no-cache",
+                    ]
+                    smoke_proc = subprocess.run(
+                        smoke_cmd,
+                        capture_output=True,
+                        text=True,
+                        check=False,
                     )
+                    parsed_data = json.loads(smoke_proc.stdout.strip().splitlines()[-1]) if smoke_proc.stdout.strip() else {}
+                    if smoke_proc.returncode != 0 or parsed_data.get("status") != "success":
+                        raise ProcessingError(
+                            f"omniparser parse smoke command failed with code {smoke_proc.returncode}: {smoke_proc.stdout.strip()}"
+                        )
+                    smoke_meta = parsed_data.get("meta", {})
                     parse_smoke = {
                         "image_path": str(image_path),
                         "element_count": len(parsed_data.get("elements", [])),
                         "image_width": int(parsed_data.get("image_width", 0)),
                         "image_height": int(parsed_data.get("image_height", 0)),
-                        "cache_hit": bool(cache_hit),
+                        "cache_hit": bool(smoke_meta.get("cache_hit", False)),
                         "processing_time_ms": int(round(_perf_ms() - smoke_start)),
                     }
                     add_check(
@@ -1570,6 +2080,71 @@ def _cmd_doctor(
                         details={"image": str(image_path), "error": str(exc)},
                     )
 
+            can_run_uied_parse = uied_root is not None and _is_uied_root(uied_root) and uied_import_ok
+            if not can_run_uied_parse:
+                add_check(
+                    check_id="parse-smoke-uied",
+                    status="warn",
+                    message="UIED parse smoke check skipped due to prerequisite failures.",
+                    details={"image": str(image_path)},
+                )
+            else:
+                try:
+                    smoke_start_uied = _perf_ms()
+                    smoke_cmd_uied = [
+                        sys.executable,
+                        str((cli_root / "cli" / "omni.py").resolve()),
+                        "parse",
+                        str(image_path),
+                        "--engine",
+                        "uied",
+                        "--uied-root",
+                        str(uied_root),
+                        "--uied-text-engine",
+                        "paddle",
+                        "--confidence-threshold",
+                        str(args.confidence_threshold),
+                        "--quiet",
+                        "--cache" if args.cache else "--no-cache",
+                    ]
+                    smoke_proc_uied = subprocess.run(
+                        smoke_cmd_uied,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    parsed_uied = (
+                        json.loads(smoke_proc_uied.stdout.strip().splitlines()[-1])
+                        if smoke_proc_uied.stdout.strip()
+                        else {}
+                    )
+                    if smoke_proc_uied.returncode != 0 or parsed_uied.get("status") != "success":
+                        raise ProcessingError(
+                            f"uied parse smoke command failed with code {smoke_proc_uied.returncode}: {smoke_proc_uied.stdout.strip()}"
+                        )
+                    smoke_meta_uied = parsed_uied.get("meta", {})
+                    parse_smoke_uied = {
+                        "image_path": str(image_path),
+                        "element_count": len(parsed_uied.get("elements", [])),
+                        "image_width": int(parsed_uied.get("image_width", 0)),
+                        "image_height": int(parsed_uied.get("image_height", 0)),
+                        "cache_hit": bool(smoke_meta_uied.get("cache_hit", False)),
+                        "processing_time_ms": int(round(_perf_ms() - smoke_start_uied)),
+                    }
+                    add_check(
+                        check_id="parse-smoke-uied",
+                        status="pass",
+                        message="UIED parse smoke check succeeded.",
+                        details=parse_smoke_uied,
+                    )
+                except Exception as exc:
+                    add_check(
+                        check_id="parse-smoke-uied",
+                        status="fail",
+                        message="UIED parse smoke check failed.",
+                        details={"image": str(image_path), "error": str(exc)},
+                    )
+
     failed = [item for item in checks if item.get("status") == "fail"]
     warned = [item for item in checks if item.get("status") == "warn"]
     passed = [item for item in checks if item.get("status") == "pass"]
@@ -1580,6 +2155,8 @@ def _cmd_doctor(
         recommendations.append("Run `omni setup --cli-root <path> --runtime-root <path>` to persist install paths.")
     if any(item.get("id") == "runtime-root" and item.get("status") == "fail" for item in checks):
         recommendations.append("Set `OMNIPARSER_ROOT` or pass `--runtime-root` to commands and re-run `omni doctor`.")
+    if any(item.get("id") == "uied-root" and item.get("status") == "fail" for item in checks):
+        recommendations.append("Set `UIED_ROOT` or pass `--uied-root` to commands and re-run `omni doctor`.")
     if any(item.get("id") == "model-files" and item.get("status") == "fail" for item in checks):
         recommendations.append("Set `OMNI_MODEL_DIR` to the correct weights folder or download OmniParser-v2.0 weights.")
 
@@ -1615,6 +2192,7 @@ def _cmd_doctor(
                 "values": install_env_values,
             },
             "parse_smoke": parse_smoke,
+            "parse_smoke_uied": parse_smoke_uied,
             "recommendations": recommendations,
         },
     }
@@ -1666,6 +2244,9 @@ def _cmd_parse(
                 extra={
                     "box_threshold": args.confidence_threshold,
                     "device": runtime.effective_device,
+                    "engine": runtime.engine,
+                    "uied_root": str(runtime.uied_root) if runtime.uied_root else None,
+                    "uied_text_engine": runtime.uied_text_engine if runtime.engine == "uied" else None,
                     "config_path": str(project_config.path) if project_config else None,
                     "image_sha256": image_sha256,
                     "config_sha256": config_sha256,
@@ -1696,6 +2277,8 @@ def _cmd_parse(
                 "ocr": parsed_data["raw_ocr"],
                 "elements_with_ratio": parsed_data["elements"],
             }
+            if "raw_uied" in parsed_data:
+                payload["raw"]["uied"] = parsed_data["raw_uied"]
         _write_json_stdout(payload, response_context=response_context)
         return 0
 
@@ -2604,7 +3187,7 @@ def _build_parser(
     runtime_root: Path,
 ) -> tuple[OmniArgumentParser, dict[str, argparse.ArgumentParser]]:
     description = (
-        "omni: Production CLI wrapper for OmniParser\n\n"
+        "omni: Production CLI wrapper for OmniParser + UIED\n\n"
         "Subcommands:\n"
         "  parse    Parse a screenshot into structured UI elements. Example: omni parse screen.png --quiet\n"
         "  debug    Render a labeled debug image of detections. Example: omni debug screen.png -o /tmp/debug.png\n"
@@ -2673,6 +3256,23 @@ def _build_parser(
         ),
     )
     parser.add_argument(
+        "--engine",
+        choices=["omniparser", "uied"],
+        default="omniparser",
+        help="Detection engine (default: omniparser).",
+    )
+    parser.add_argument(
+        "--uied-root",
+        default=None,
+        help="Path to UIED root (must contain detect_compo/ and detect_merge/).",
+    )
+    parser.add_argument(
+        "--uied-text-engine",
+        choices=["paddle", "google", "none"],
+        default="paddle",
+        help="UIED text engine when --engine uied (default: paddle).",
+    )
+    parser.add_argument(
         "--config",
         help="Explicit path to project config file (.omni.json). Overrides auto-discovery.",
     )
@@ -2726,6 +3326,23 @@ def _build_parser(
         )
         command_parser.add_argument(
             "--runtime-root",
+            default=argparse.SUPPRESS,
+            help=argparse.SUPPRESS,
+        )
+        command_parser.add_argument(
+            "--engine",
+            choices=["omniparser", "uied"],
+            default=argparse.SUPPRESS,
+            help=argparse.SUPPRESS,
+        )
+        command_parser.add_argument(
+            "--uied-root",
+            default=argparse.SUPPRESS,
+            help=argparse.SUPPRESS,
+        )
+        command_parser.add_argument(
+            "--uied-text-engine",
+            choices=["paddle", "google", "none"],
             default=argparse.SUPPRESS,
             help=argparse.SUPPRESS,
         )
@@ -3309,6 +3926,11 @@ def main(argv: list[str] | None = None) -> int:
         runtime_root = _resolve_runtime_root(cli_root, runtime_override=getattr(args, "runtime_root", None))
         omniparser_version = _omniparser_version(runtime_root)
 
+        engine = str(getattr(args, "engine", "omniparser"))
+        uied_root: Path | None = None
+        if engine == "uied":
+            uied_root = _resolve_uied_root(cli_root, uied_override=getattr(args, "uied_root", None))
+
         model_dir = Path(args.model_dir).expanduser().resolve() if args.model_dir else _default_model_dir(runtime_root)
         runtime = OmniRuntime(
             repo_root=runtime_root,
@@ -3316,6 +3938,9 @@ def main(argv: list[str] | None = None) -> int:
             requested_device=args.device,
             logger=logger,
             omniparser_version=omniparser_version,
+            engine=engine,
+            uied_root=uied_root,
+            uied_text_engine=str(getattr(args, "uied_text_engine", "paddle")),
         )
 
         if args.command == "parse":
@@ -3382,6 +4007,7 @@ def main(argv: list[str] | None = None) -> int:
             "command": response_context.command,
             "request_id": response_context.request_id,
             "timestamp_utc": response_context.timestamp_utc,
+            "engine": str(getattr(args, "engine", "omniparser")),
         }
         explicit_config = getattr(args, "config", None)
         if explicit_config:
@@ -3392,6 +4018,12 @@ def main(argv: list[str] | None = None) -> int:
                 error_meta["runtime_root"] = str(Path(runtime_root_arg).expanduser().resolve())
             except Exception:
                 error_meta["runtime_root"] = str(runtime_root_arg)
+        uied_root_arg = getattr(args, "uied_root", None)
+        if uied_root_arg:
+            try:
+                error_meta["uied_root"] = str(Path(uied_root_arg).expanduser().resolve())
+            except Exception:
+                error_meta["uied_root"] = str(uied_root_arg)
         if getattr(args, "image", None):
             try:
                 image_path = str(Path(getattr(args, "image")).expanduser().resolve())

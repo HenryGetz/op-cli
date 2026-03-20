@@ -1,6 +1,6 @@
 # Omni CLI (`omni`)
 
-Production CLI wrapper around OmniParser for deterministic, script-friendly usage by humans and AI agents.
+Production CLI wrapper around OmniParser and UIED for deterministic, script-friendly usage by humans and AI agents.
 
 ## Installation
 
@@ -37,6 +37,7 @@ Optional environment overrides:
 - `OMNI_CLI_ROOT` (explicit CLI root containing `cli/omni.py`)
 - `OMNI_ROOT` (legacy alias for CLI root)
 - `OMNIPARSER_ROOT` / `OMNI_RUNTIME_ROOT` (OmniParser runtime root with `util/utils.py`)
+- `UIED_ROOT` (UIED root with `detect_compo/` and `detect_merge/`)
 - `OMNI_PYTHON` (force interpreter)
 - `OMNI_MODEL_DIR` (default: `$OMNIPARSER_ROOT/weights`)
 - `OMNI_INSTALL_ENV` (override install-env file path)
@@ -86,8 +87,14 @@ omni parse --schema
 # Diagnose runtime/model/dependency health
 omni doctor --image screenshot.png --quiet
 
+# Parse with UIED backend
+omni parse screenshot.png --engine uied --quiet
+
+# Generate labeled UIED debug artifact
+omni debug screenshot.png --engine uied -o /tmp/uied-debug.png --quiet
+
 # Persist install paths once for future invocations
-omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser
+omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
 ```
 
 ## Commands
@@ -103,7 +110,7 @@ omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser
 - `omni info <image>`
 - `omni check <image>`
 - `omni overlay <image1> <image2> -o <output_path>`
-- `omni setup --cli-root <path> --runtime-root <path> [--python <path>]`
+- `omni setup --cli-root <path> --runtime-root <path> [--uied-root <path>] [--python <path>]`
 - `omni help` and `omni <subcommand> --help`
 
 ## Persistent Setup
@@ -112,10 +119,10 @@ Use wrapper-level setup once, then all future runs reuse these paths from `~/.co
 
 ```sh
 # Save defaults
-omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser
+omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
 
 # Include preferred Python
-omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --python /path/to/python
+omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED --python /path/to/python
 
 # Inspect saved config
 omni setup --show
@@ -128,7 +135,42 @@ Setup validations:
 
 - `--cli-root` must contain `cli/omni.py`
 - `--runtime-root` must contain `util/utils.py`
+- `--uied-root` (optional) must contain `detect_compo/ip_region_proposal.py` and `detect_merge/merge.py`
 - `--python` must be executable
+
+`setup` persists CLI/runtime/UIED/python values when provided. `UIED_ROOT` can still be overridden per-shell or per-command.
+
+## UIED Backend
+
+`omni` supports two detection engines:
+
+- `omniparser` (default)
+- `uied`
+
+UIED usage:
+
+```sh
+# Parse using UIED
+omni parse screenshot.png --engine uied --quiet
+
+# Use explicit UIED install path
+omni parse screenshot.png --engine uied --uied-root /path/to/UIED --quiet
+
+# Disable UIED OCR (component-only)
+omni parse screenshot.png --engine uied --uied-text-engine none --quiet
+```
+
+UIED-specific global flags:
+
+- `--engine omniparser|uied`
+- `--uied-root <path>`
+- `--uied-text-engine paddle|google|none`
+
+Notes:
+
+- default UIED OCR path uses Paddle OCR (`--uied-text-engine paddle`)
+- UIED output is normalized to the same JSON contract as OmniParser commands
+- `debug`, `measure`, `crop`, `diff`, `info`, and `check` can run with `--engine uied`
 
 ## Windows Launchers
 
