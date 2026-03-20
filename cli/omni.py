@@ -1048,7 +1048,46 @@ class OmniRuntime:
             right = x + width
             if x <= edge_band_x and right <= left_bound:
                 left_items.append(element)
-        if len(left_items) >= 3:
+        sidebar_left_added = False
+        left_rail_items = []
+        max_rail_width = max(80, int(round(image_width * 0.1)))
+        max_rail_height = max(140, int(round(image_height * 0.18)))
+        rail_edge_x = max(48, int(round(image_width * 0.08)))
+        for item in left_items:
+            bbox = item.get("bbox", {})
+            x = int(bbox.get("x", 0))
+            width = int(bbox.get("width", 0))
+            height = int(bbox.get("height", 0))
+            if str(item.get("element_type", "")).lower() == "text":
+                continue
+            if x <= rail_edge_x and width <= max_rail_width and height <= max_rail_height:
+                left_rail_items.append(item)
+
+        if len(left_rail_items) >= 4:
+            rail_right = max(int(item["bbox"]["x"]) + int(item["bbox"]["width"]) for item in left_rail_items)
+            rail_top = min(int(item["bbox"]["y"]) for item in left_rail_items)
+            rail_bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in left_rail_items)
+            rail_vertical_coverage = (rail_bottom - rail_top) / max(1, image_height)
+            if rail_vertical_coverage >= 0.55:
+                pad = max(10, int(round(image_width * 0.02)))
+                inferred_width = min(edge_band_x, rail_right + pad)
+                inferred_width = max(inferred_width, rail_right)
+                regions.append(
+                    {
+                        "name": "sidebar-left",
+                        "bbox": {
+                            "x": 0,
+                            "y": 0,
+                            "width": int(inferred_width),
+                            "height": int(image_height),
+                        },
+                        "confidence": round(min(1.0, 0.5 + (rail_vertical_coverage * 0.4)), 3),
+                        "source": "uied-layout-infer",
+                    }
+                )
+                sidebar_left_added = True
+
+        if not sidebar_left_added and len(left_items) >= 3:
             right = max(int(item["bbox"]["x"]) + int(item["bbox"]["width"]) for item in left_items)
             top = min(int(item["bbox"]["y"]) for item in left_items)
             bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in left_items)
