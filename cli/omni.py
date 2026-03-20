@@ -60,6 +60,13 @@ SUPPORTED_IMAGE_EXTENSIONS = {
     ".tiff",
 }
 
+COMMON_RUNTIME_ROOTS = (
+    "~/ai/omni-parser/OmniParser",
+    "~/OmniParser",
+    "~/src/OmniParser",
+    "~/projects/OmniParser",
+)
+
 
 class OmniCLIError(Exception):
     """Base exception for CLI errors."""
@@ -441,11 +448,61 @@ def _omniparser_version(repo_root: Path) -> str:
         return "unknown"
 
 
-def _default_model_dir(repo_root: Path) -> Path:
+def _default_model_dir(runtime_root: Path) -> Path:
     env_override = os.environ.get("OMNI_MODEL_DIR")
     if env_override:
         return Path(env_override).expanduser().resolve()
-    return (repo_root / "weights").resolve()
+    return (runtime_root / "weights").resolve()
+
+
+def _is_runtime_root(path: Path) -> bool:
+    return (path / "util" / "utils.py").is_file()
+
+
+def _resolve_runtime_root(cli_root: Path, runtime_override: str | None) -> Path:
+    if runtime_override:
+        candidate = Path(runtime_override).expanduser().resolve()
+        if not _is_runtime_root(candidate):
+            raise UserInputError(
+                "Invalid --runtime-root. Expected a directory containing util/utils.py; "
+                f"got: {candidate}"
+            )
+        return candidate
+
+    env_override = os.environ.get("OMNIPARSER_ROOT") or os.environ.get("OMNI_RUNTIME_ROOT")
+    if env_override:
+        candidate = Path(env_override).expanduser().resolve()
+        if not _is_runtime_root(candidate):
+            raise UserInputError(
+                "OMNIPARSER_ROOT/OMNI_RUNTIME_ROOT is set but invalid. "
+                "Expected util/utils.py under that directory; "
+                f"got: {candidate}"
+            )
+        return candidate
+
+    candidates: list[Path] = []
+
+    if _is_runtime_root(cli_root):
+        candidates.append(cli_root)
+
+    candidates.extend(
+        [
+            (cli_root.parent / "OmniParser").resolve(),
+            (cli_root / "OmniParser").resolve(),
+            (cli_root.parent / "omni-parser" / "OmniParser").resolve(),
+        ]
+    )
+    candidates.extend(Path(raw).expanduser().resolve() for raw in COMMON_RUNTIME_ROOTS)
+
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if _is_runtime_root(candidate):
+            return candidate
+
+    return cli_root
 
 
 def _config_sha256(project_config: ProjectConfig | None) -> str | None:
@@ -596,7 +653,14 @@ class OmniRuntime:
         def _load() -> None:
             import importlib
 
-            self._omni_utils = importlib.import_module("util.utils")
+            try:
+                self._omni_utils = importlib.import_module("util.utils")
+            except ModuleNotFoundError as exc:
+                raise ProcessingError(
+                    "Could not import OmniParser runtime module 'util.utils'. "
+                    "Set --runtime-root <path> or OMNIPARSER_ROOT to your OmniParser directory "
+                    "(the folder containing util/utils.py)."
+                ) from exc
             som_path, caption_path = self._resolve_model_paths()
 
             if self.requested_device == "cuda":
@@ -1538,6 +1602,12 @@ def _cmd_locate(
         warnings.append(
             "locate result is ambiguous: top candidates have close scores; use near/side/within hints or target selectors."
         )
+        if args.require_unambiguous:
+            raise ProcessingError(
+                "locate result is ambiguous and --require-unambiguous was set. "
+                f"top_score={ambiguity['top_score']}, second_score={ambiguity['second_score']}, "
+                f"gap={ambiguity['top2_gap']}."
+            )
 
     debug_path = None
     if args.save_annotated:
@@ -1958,6 +2028,12 @@ def _cmd_match(
         warnings.append(
             "match result is ambiguous: top candidates have close match_score values; add anchors or stronger query hints."
         )
+        if args.require_unambiguous:
+            raise ProcessingError(
+                "match result is ambiguous and --require-unambiguous was set. "
+                f"top_score={ambiguity['top_score']}, second_score={ambiguity['second_score']}, "
+                f"gap={ambiguity['top2_gap']}."
+            )
 
     if not scored_candidates:
         raise ProcessingError("Unable to score candidates in image2.")
@@ -2228,7 +2304,11 @@ class OmniArgumentParser(argparse.ArgumentParser):
         raise UserInputError(message)
 
 
-def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argparse.ArgumentParser]]:
+def _build_parser(
+    *,
+    cli_root: Path,
+    runtime_root: Path,
+) -> tuple[OmniArgumentParser, dict[str, argparse.ArgumentParser]]:
     description = (
         "omni: Production CLI wrapper for OmniParser\n\n"
         "Subcommands:\n"
@@ -2283,8 +2363,19 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
     )
     parser.add_argument(
         "--model-dir",
-        default=str(_default_model_dir(repo_root)),
-        help=f"Override model directory (default: {_default_model_dir(repo_root)}).",
+        default=None,
+        help=(
+            "Override model directory. Default: OMNI_MODEL_DIR if set, "
+            f"otherwise {str(_default_model_dir(runtime_root))}."
+        ),
+    )
+    parser.add_argument(
+        "--runtime-root",
+        default=None,
+        help=(
+            "Path to OmniParser runtime root (must contain util/utils.py). "
+            "Overrides OMNIPARSER_ROOT / OMNI_RUNTIME_ROOT."
+        ),
     )
     parser.add_argument(
         "--config",
@@ -2335,6 +2426,11 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         )
         command_parser.add_argument(
             "--model-dir",
+            default=argparse.SUPPRESS,
+            help=argparse.SUPPRESS,
+        )
+        command_parser.add_argument(
+            "--runtime-root",
             default=argparse.SUPPRESS,
             help=argparse.SUPPRESS,
         )
@@ -2497,6 +2593,11 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         default=DEFAULT_BOX_THRESHOLD,
         help="Detection threshold used while resolving matches.",
     )
+    locate_parser.add_argument(
+        "--require-unambiguous",
+        action="store_true",
+        help="Fail when top candidates are too close in score (automation-safe mode).",
+    )
 
     match_help = (
         "Match one logical UI element across two screenshots using label + proximity + geometry scoring.\n\n"
@@ -2546,6 +2647,11 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         type=float,
         default=DEFAULT_BOX_THRESHOLD,
         help="Detection threshold used for both images.",
+    )
+    match_parser.add_argument(
+        "--require-unambiguous",
+        action="store_true",
+        help="Fail when top candidates are too close in score (automation-safe mode).",
     )
 
     measure_help = (
@@ -2728,9 +2834,13 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
 
 
 def main(argv: list[str] | None = None) -> int:
-    repo_root = Path(__file__).resolve().parents[1]
+    cli_root = Path(__file__).resolve().parents[1]
     raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
-    omniparser_version = _omniparser_version(repo_root)
+    try:
+        initial_runtime_root = _resolve_runtime_root(cli_root, runtime_override=None)
+    except UserInputError:
+        initial_runtime_root = cli_root
+    omniparser_version = _omniparser_version(initial_runtime_root)
 
     if "--schema" in raw_argv:
         command_token = next(
@@ -2754,7 +2864,7 @@ def main(argv: list[str] | None = None) -> int:
                 request_id=_new_request_id(),
                 timestamp_utc=_utc_timestamp(),
             )
-            schema_path = _schema_path_for_command(repo_root, command_token)
+            schema_path = _schema_path_for_command(cli_root, command_token)
             payload = {
                 "status": "success",
                 "error": None,
@@ -2769,14 +2879,14 @@ def main(argv: list[str] | None = None) -> int:
                     "request_id": response_context.request_id,
                     "timestamp_utc": response_context.timestamp_utc,
                     "processing_time_ms": 0,
-                    "omniparser_version": _omniparser_version(repo_root),
+                    "omniparser_version": _omniparser_version(initial_runtime_root),
                     "cli_version": CLI_VERSION,
                 },
             }
             _write_json_stdout(payload, response_context=response_context)
             return 0
 
-    parser, subparser_map = _build_parser(repo_root)
+    parser, subparser_map = _build_parser(cli_root=cli_root, runtime_root=initial_runtime_root)
 
     try:
         args = parser.parse_args(argv)
@@ -2828,7 +2938,7 @@ def main(argv: list[str] | None = None) -> int:
             request_id=_new_request_id(),
             timestamp_utc=_utc_timestamp(),
         )
-        schema_path = _schema_path_for_command(repo_root, str(args.command))
+        schema_path = _schema_path_for_command(cli_root, str(args.command))
         payload = {
             "status": "success",
             "error": None,
@@ -2866,9 +2976,12 @@ def main(argv: list[str] | None = None) -> int:
         project_config = config_manager.get(required=(args.command == "check"))
         config_sha256 = _config_sha256(project_config)
 
-        model_dir = Path(args.model_dir).expanduser().resolve()
+        runtime_root = _resolve_runtime_root(cli_root, runtime_override=getattr(args, "runtime_root", None))
+        omniparser_version = _omniparser_version(runtime_root)
+
+        model_dir = Path(args.model_dir).expanduser().resolve() if args.model_dir else _default_model_dir(runtime_root)
         runtime = OmniRuntime(
-            repo_root=repo_root,
+            repo_root=runtime_root,
             model_dir=model_dir,
             requested_device=args.device,
             logger=logger,
@@ -2943,6 +3056,12 @@ def main(argv: list[str] | None = None) -> int:
         explicit_config = getattr(args, "config", None)
         if explicit_config:
             error_meta["config_path"] = str(Path(explicit_config).expanduser().resolve())
+        runtime_root_arg = getattr(args, "runtime_root", None)
+        if runtime_root_arg:
+            try:
+                error_meta["runtime_root"] = str(Path(runtime_root_arg).expanduser().resolve())
+            except Exception:
+                error_meta["runtime_root"] = str(runtime_root_arg)
         if getattr(args, "image", None):
             try:
                 image_path = str(Path(getattr(args, "image")).expanduser().resolve())

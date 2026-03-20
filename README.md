@@ -4,20 +4,42 @@ Production CLI wrapper around OmniParser for deterministic, script-friendly usag
 
 ## Installation
 
-`omni.py` lives at `cli/omni.py` and is launched by the POSIX wrapper at `/home/wavy/bin/omni`.
+`omni.py` lives at `cli/omni.py` and is launched by the POSIX wrapper at `bin/omni`.
 
-If needed:
+Recommended setup:
 
 ```sh
-ln -sf /home/wavy/bin/omni ~/bin/omni
+ln -sf /home/wavy/ai/op-cli/bin/omni ~/bin/omni
 chmod +x ~/bin/omni
+```
+
+The wrapper auto-discovers both:
+
+- CLI root (folder containing `cli/omni.py`)
+- OmniParser runtime root (folder containing `util/utils.py`)
+
+Discovery sources (in order):
+
+1. Env vars
+2. `~/.config/omni/install.env`
+3. Common local install paths
+
+Optional `~/.config/omni/install.env` example:
+
+```sh
+OMNI_CLI_ROOT=/path/to/op-cli
+OMNIPARSER_ROOT=/path/to/OmniParser
+OMNI_PYTHON=/path/to/python
 ```
 
 Optional environment overrides:
 
-- `OMNI_ROOT` (default: `~/ai/omni-parser/OmniParser`)
+- `OMNI_CLI_ROOT` (explicit CLI root containing `cli/omni.py`)
+- `OMNI_ROOT` (legacy alias for CLI root)
+- `OMNIPARSER_ROOT` / `OMNI_RUNTIME_ROOT` (OmniParser runtime root with `util/utils.py`)
 - `OMNI_PYTHON` (force interpreter)
-- `OMNI_MODEL_DIR` (default: `$OMNI_ROOT/weights`)
+- `OMNI_MODEL_DIR` (default: `$OMNIPARSER_ROOT/weights`)
+- `OMNI_INSTALL_ENV` (override install-env file path)
 
 ## Quick Start
 
@@ -85,6 +107,7 @@ omni parse --schema
 - `--version` - print CLI + OmniParser version
 - `--schema` - print JSON schema path for the selected subcommand
 - `--model-dir <path>` - override model path
+- `--runtime-root <path>` - override OmniParser runtime root (must contain `util/utils.py`)
 - `--config <path>` - explicit `.omni.json` path (overrides discovery)
 - `--device cpu|cuda` - inference device (default `cpu`)
 - `--cache/--no-cache` - parse cache toggle (`~/.cache/omni`)
@@ -263,13 +286,14 @@ omni check <image> [--config <path>] [--only <id,id,...>] [--skip <id,id,...>] [
 ### Usage
 
 ```sh
-omni locate <image> --query <selector> [--edge <edge>] [--top-k <n>] [--save-annotated <path>] [--quiet]
+omni locate <image> --query <selector> [--edge <edge>] [--top-k <n>] [--require-unambiguous] [--save-annotated <path>] [--quiet]
 ```
 
 ### Purpose
 
 - Debugs label mismatch situations by returning ranked candidates
 - Shows how proximity hints influenced matching scores
+- `--require-unambiguous` turns ambiguity warnings into hard failures for safe automation
 - Produces a visual candidate ranking image when `--save-annotated` is provided
 
 ### Output fields
@@ -285,7 +309,7 @@ omni locate <image> --query <selector> [--edge <edge>] [--top-k <n>] [--save-ann
 ### Usage
 
 ```sh
-omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <n>] [--min-score <float>] [--save-annotated <path>] [--quiet]
+omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <n>] [--min-score <float>] [--require-unambiguous] [--save-annotated <path>] [--quiet]
 ```
 
 ### Purpose
@@ -293,6 +317,7 @@ omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <
 - Reliably track the same logical UI element across two screenshots
 - Handles duplicate/changed labels using multi-factor scoring
 - Supports optional shared anchors (`--anchor`) to stabilize matching across layout shifts
+- `--require-unambiguous` forces a non-ambiguous winner before proceeding
 
 ### Scoring factors
 
@@ -303,7 +328,7 @@ omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <
 - `type_score`: element type match (`text`, `icon`, etc.)
 - `anchor_score`: relative-position consistency to resolved anchors (when provided)
 
-`match.ambiguity` is included to highlight close-call matches; agents should require `ambiguous=false` for strict automation.
+`match.ambiguity` is included to highlight close-call matches; agents can enforce this automatically with `--require-unambiguous`.
 
 ## `omni debug` Reference
 
@@ -472,6 +497,8 @@ Additional recommendations:
 - keep `--quiet` enabled for parser-safe stdout JSON
 - use `--save-report` for audit trail artifacts
 - when label matching is unstable, use `omni locate ... --query "label:...|near:...|side:..."` before `measure/check`
+- for autonomous actions, add `--require-unambiguous` to `locate` and `match`
+- pin runtime portability with `--runtime-root <path>` (or `OMNIPARSER_ROOT`) in CI/agents
 - use `--only` and `--skip` to narrow expensive checks during iterative tuning
 
 ## Known Limitations

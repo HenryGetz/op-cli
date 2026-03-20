@@ -2,11 +2,110 @@
 
 set -eu
 
-OMNI_ROOT="${OMNI_ROOT:-$HOME/ai/omni-parser/OmniParser}"
-CLI_ENTRY="$OMNI_ROOT/cli/omni.py"
+resolve_script_path() {
+  script_path="$1"
+  if command -v readlink >/dev/null 2>&1; then
+    while [ -L "$script_path" ]; do
+      link_target="$(readlink "$script_path")"
+      case "$link_target" in
+        /*)
+          script_path="$link_target"
+          ;;
+        *)
+          script_dir="$(dirname -- "$script_path")"
+          script_path="$script_dir/$link_target"
+          ;;
+      esac
+    done
+  fi
+  printf '%s\n' "$script_path"
+}
 
-if [ ! -f "$CLI_ENTRY" ]; then
-  echo "omni: CLI entrypoint not found at $CLI_ENTRY" >&2
+script_path="$(resolve_script_path "$0")"
+script_dir="$(CDPATH= cd -- "$(dirname -- "$script_path")" && pwd -P)"
+
+install_env="${OMNI_INSTALL_ENV:-$HOME/.config/omni/install.env}"
+if [ -f "$install_env" ]; then
+  # shellcheck disable=SC1090
+  . "$install_env"
+fi
+
+find_cli_root() {
+  for candidate in "$@"; do
+    [ -n "$candidate" ] || continue
+    if [ -f "$candidate/cli/omni.py" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+find_runtime_root() {
+  for candidate in "$@"; do
+    [ -n "$candidate" ] || continue
+    if [ -f "$candidate/util/utils.py" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+CLI_ROOT=""
+if [ -n "${OMNI_CLI_ROOT:-}" ]; then
+  CLI_ROOT="$(find_cli_root "$OMNI_CLI_ROOT" || true)"
+fi
+
+if [ -z "$CLI_ROOT" ] && [ -n "${OMNI_ROOT:-}" ]; then
+  CLI_ROOT="$(find_cli_root "$OMNI_ROOT" || true)"
+fi
+
+if [ -z "$CLI_ROOT" ]; then
+  CLI_ROOT="$(find_cli_root \
+    "$script_dir/.." \
+    "$script_dir/../OmniParser" \
+    "$script_dir/../omni-parser/OmniParser" \
+    "$HOME/ai/op-cli" \
+    "$HOME/ai/omni-parser/OmniParser" \
+    "$HOME/OmniParser" \
+    "$HOME/src/OmniParser" \
+    "$HOME/projects/OmniParser" \
+    || true)"
+fi
+
+if [ -z "$CLI_ROOT" ]; then
+  echo "omni: unable to locate CLI root (expected <root>/cli/omni.py)" >&2
+  echo "Set OMNI_CLI_ROOT or OMNI_ROOT, or create $install_env with OMNI_CLI_ROOT=<path>." >&2
+  exit 2
+fi
+
+CLI_ENTRY="$CLI_ROOT/cli/omni.py"
+
+RUNTIME_ROOT=""
+if [ -n "${OMNIPARSER_ROOT:-}" ]; then
+  RUNTIME_ROOT="$(find_runtime_root "$OMNIPARSER_ROOT" || true)"
+fi
+
+if [ -z "$RUNTIME_ROOT" ] && [ -n "${OMNI_RUNTIME_ROOT:-}" ]; then
+  RUNTIME_ROOT="$(find_runtime_root "$OMNI_RUNTIME_ROOT" || true)"
+fi
+
+if [ -z "$RUNTIME_ROOT" ]; then
+  RUNTIME_ROOT="$(find_runtime_root \
+    "$CLI_ROOT" \
+    "$CLI_ROOT/../OmniParser" \
+    "$CLI_ROOT/../omni-parser/OmniParser" \
+    "$HOME/ai/omni-parser/OmniParser" \
+    "$HOME/OmniParser" \
+    "$HOME/src/OmniParser" \
+    "$HOME/projects/OmniParser" \
+    || true)"
+fi
+
+if [ -z "$RUNTIME_ROOT" ]; then
+  echo "omni: unable to locate OmniParser runtime root (expected <root>/util/utils.py)" >&2
+  echo "Set OMNIPARSER_ROOT (or OMNI_RUNTIME_ROOT) to your OmniParser install directory." >&2
   exit 2
 fi
 
@@ -14,24 +113,36 @@ if [ -n "${OMNI_PYTHON:-}" ]; then
   PYTHON_BIN="$OMNI_PYTHON"
 elif [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
   PYTHON_BIN="$VIRTUAL_ENV/bin/python"
-elif [ -x "$OMNI_ROOT/.venv/bin/python" ]; then
-  PYTHON_BIN="$OMNI_ROOT/.venv/bin/python"
+elif [ -n "${CONDA_PREFIX:-}" ] && [ -x "$CONDA_PREFIX/bin/python" ]; then
+  PYTHON_BIN="$CONDA_PREFIX/bin/python"
+elif [ -x "$RUNTIME_ROOT/.venv/bin/python" ]; then
+  PYTHON_BIN="$RUNTIME_ROOT/.venv/bin/python"
+elif [ -x "$CLI_ROOT/.venv/bin/python" ]; then
+  PYTHON_BIN="$CLI_ROOT/.venv/bin/python"
 elif [ -x "$HOME/miniconda3/envs/omniparser_cpu/bin/python" ]; then
   PYTHON_BIN="$HOME/miniconda3/envs/omniparser_cpu/bin/python"
 elif [ -x "$HOME/miniconda3/envs/omni/bin/python" ]; then
   PYTHON_BIN="$HOME/miniconda3/envs/omni/bin/python"
 elif command -v python3 >/dev/null 2>&1; then
   PYTHON_BIN="$(command -v python3)"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="$(command -v python)"
 else
   echo "omni: unable to find a usable Python interpreter" >&2
   exit 2
 fi
 
-if [ -z "${OMNI_MODEL_DIR:-}" ] && [ -d "$OMNI_ROOT/weights" ]; then
-  export OMNI_MODEL_DIR="$OMNI_ROOT/weights"
+if [ -z "${OMNI_MODEL_DIR:-}" ] && [ -d "$RUNTIME_ROOT/weights" ]; then
+  export OMNI_MODEL_DIR="$RUNTIME_ROOT/weights"
 fi
 
-export PYTHONPATH="$OMNI_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export OMNIPARSER_ROOT="$RUNTIME_ROOT"
+
+if [ "$CLI_ROOT" = "$RUNTIME_ROOT" ]; then
+  export PYTHONPATH="$CLI_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+else
+  export PYTHONPATH="$CLI_ROOT:$RUNTIME_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+fi
 
 exec "$PYTHON_BIN" "$CLI_ENTRY" "$@"
 
