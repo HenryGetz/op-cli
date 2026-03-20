@@ -114,6 +114,7 @@
         "type": "object",
         "required": [
           "index",
+          "element_id",
           "bbox",
           "label",
           "element_type",
@@ -124,6 +125,10 @@
           "index": {
             "type": "integer",
             "minimum": 0
+          },
+          "element_id": {
+            "type": "string",
+            "minLength": 3
           },
           "bbox": {
             "type": "object",

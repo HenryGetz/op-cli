@@ -72,7 +72,8 @@
         "target",
         "delta",
         "candidates",
-        "total_candidates"
+        "total_candidates",
+        "ambiguity"
       ],
       "additionalProperties": true
     }

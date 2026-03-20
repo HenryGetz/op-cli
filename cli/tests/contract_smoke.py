@@ -43,6 +43,14 @@ def check_envelope(payload: dict, command: str) -> None:
     require(meta.get("timestamp_utc") == payload.get("timestamp_utc"), f"{command}: timestamp mismatch")
 
 
+def check_parse_specific(payload: dict) -> None:
+    elements = payload.get("elements")
+    require(isinstance(elements, list), "parse: elements must be list")
+    if elements:
+        first = elements[0]
+        require(isinstance(first.get("element_id"), str) and first["element_id"], "parse: element_id missing")
+
+
 def main() -> int:
     image = os.environ.get("OMNI_TEST_IMAGE")
     if not image:
@@ -102,6 +110,8 @@ def main() -> int:
         require(stderr == "", f"{command}: expected quiet stderr")
         payload = parse_json(stdout)
         check_envelope(payload, command)
+        if command == "parse":
+            check_parse_specific(payload)
 
     for command in ["parse", "debug", "locate", "match", "measure", "crop", "diff", "info", "check", "overlay"]:
         code, stdout, stderr = run(["omni", command, "--schema"], cwd=work)

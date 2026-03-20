@@ -186,6 +186,46 @@ def _resolve_query_spec(
     )
 
 
+def _resolve_element_id_reference(
+    *,
+    lookup_spec: str,
+    normalized_spec: str,
+    elements: list[dict[str, Any]],
+    edge: str,
+    role: str,
+    target_chain: list[str],
+) -> dict[str, Any] | None:
+    if not (lookup_spec.startswith("id:") or lookup_spec.startswith("element-id:")):
+        return None
+
+    element_id = lookup_spec.split(":", 1)[1].strip()
+    if not element_id:
+        raise ResolutionError(f"Invalid {role} element id reference '{normalized_spec}'.")
+
+    matches = [element for element in elements if str(element.get("element_id", "")).strip() == element_id]
+    if not matches:
+        raise ResolutionError(
+            f"{role} references element id '{element_id}', but no matching element_id was found."
+        )
+    if len(matches) > 1:
+        raise ResolutionError(
+            f"{role} element id '{element_id}' matched multiple elements ({len(matches)})."
+        )
+
+    element = matches[0]
+    point_x, point_y = bbox_point_for_edge(element["bbox"], edge=edge)
+    return {
+        "mode": "element_id",
+        "spec": normalized_spec,
+        "target_chain": target_chain,
+        "element_id": str(element.get("element_id", "")),
+        "element_index": int(element.get("index", -1)),
+        "element_label": str(element.get("label", "")),
+        "resolved_point": {"x": point_x, "y": point_y},
+        "resolved_bbox": element["bbox"],
+    }
+
+
 def _distance_score(*, x1: float, y1: float, x2: float, y2: float, max_distance: float) -> float:
     if max_distance <= 0:
         return 1.0
@@ -442,6 +482,8 @@ def resolve_reference_spec(
     if query_hints and (
         lookup_spec.startswith("region:")
         or lookup_spec.startswith("element:")
+        or lookup_spec.startswith("id:")
+        or lookup_spec.startswith("element-id:")
         or parse_coord_pair(lookup_spec) is not None
     ):
         raise ResolutionError(
@@ -457,6 +499,17 @@ def resolve_reference_spec(
     if region_resolved is not None:
         region_resolved["target_chain"] = target_chain
         return region_resolved
+
+    id_resolved = _resolve_element_id_reference(
+        lookup_spec=lookup_spec,
+        normalized_spec=normalized_spec,
+        elements=elements,
+        edge=edge,
+        role=role,
+        target_chain=target_chain,
+    )
+    if id_resolved is not None:
+        return id_resolved
 
     if lookup_spec.startswith("element:"):
         idx_text = lookup_spec.split(":", 1)[1].strip()
@@ -474,6 +527,7 @@ def resolve_reference_spec(
             "mode": "element",
             "spec": normalized_spec,
             "target_chain": target_chain,
+            "element_id": str(element.get("element_id", "")),
             "element_index": idx,
             "element_label": str(element.get("label", "")),
             "resolved_point": {"x": point_x, "y": point_y},
@@ -505,7 +559,7 @@ def resolve_reference_spec(
     best = ranked[0] if ranked else None
     if best is None:
         raise ResolutionError(
-            f"Unable to resolve '{normalized_spec}' for {role}. Try coordinates, element:<index>, or region:<name>."
+            f"Unable to resolve '{normalized_spec}' for {role}. Try coordinates, element:<index>, id:<element_id>, or region:<name>."
         )
 
     best_score = float(best["score"])
@@ -537,6 +591,7 @@ def resolve_reference_spec(
         else None,
         "query_hints": best.get("hints") or {},
         "target_chain": target_chain,
+        "element_id": str(best_element.get("element_id", "")),
         "element_index": int(best_element["index"]),
         "element_label": str(best_element.get("label", "")),
         "resolved_point": {"x": point_x, "y": point_y},

@@ -25,6 +25,9 @@ Optional environment overrides:
 # Parse to structured JSON
 omni parse screenshot.png --quiet
 
+# Reference by stable element id
+omni measure screenshot.png --from id:e_abc123... --to id:e_def456... --quiet
+
 # Parse + save OmniParser-native annotated debug image
 omni parse screenshot.png --save-annotated /tmp/annotated.png --quiet
 
@@ -111,6 +114,8 @@ Examples:
 - `*|side:bottom|near:960,1020`
 
 These selectors work anywhere a reference string is accepted (`omni locate`, `omni measure --from/--to`, and `measurement` assertions in `.omni.json`).
+
+`parse` emits `element_id` per detection. `id:<element_id>` (or `element-id:<element_id>`) is accepted in selectors anywhere references are used.
 
 ### Reusable targets
 
@@ -272,6 +277,7 @@ omni locate <image> --query <selector> [--edge <edge>] [--top-k <n>] [--save-ann
 - `locate.query`: original selector
 - `locate.resolved`: final resolved target (same contract used by `measure`)
 - `locate.candidates[]`: ranked candidates with `score`, `label_score`, `near_score`, `side_score`, and distance-to-near
+- `locate.ambiguity`: ambiguity summary (`top2_gap`, `ambiguous`) to guard autonomous actions
 - `meta.annotated_path`: debug image path when requested
 
 ## `omni match` Reference
@@ -296,6 +302,8 @@ omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <
 - `size_score`: width/height similarity
 - `type_score`: element type match (`text`, `icon`, etc.)
 - `anchor_score`: relative-position consistency to resolved anchors (when provided)
+
+`match.ambiguity` is included to highlight close-call matches; agents should require `ambiguous=false` for strict automation.
 
 ## `omni debug` Reference
 

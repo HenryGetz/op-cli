@@ -150,6 +150,71 @@ def _safe_label(value: Any) -> str:
     return str(value).strip()
 
 
+def _element_fingerprint(
+    *,
+    element_type: str,
+    label: str,
+    bbox_ratio: list[float],
+) -> str:
+    normalized_label = _normalize_text(label)
+    rounded_ratio = [round(float(v), 4) for v in bbox_ratio]
+    raw = json.dumps(
+        {
+            "type": str(element_type),
+            "label": normalized_label,
+            "bbox_ratio": rounded_ratio,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    return f"e_{digest}"
+
+
+def _ensure_elements_have_ids(parsed_data: dict[str, Any]) -> bool:
+    elements = parsed_data.get("elements")
+    if not isinstance(elements, list):
+        return False
+
+    image_width = int(parsed_data.get("image_width", 0) or 0)
+    image_height = int(parsed_data.get("image_height", 0) or 0)
+    changed = False
+
+    for element in elements:
+        if not isinstance(element, dict):
+            continue
+        existing = str(element.get("element_id", "")).strip()
+        if existing:
+            continue
+
+        bbox_ratio = element.get("bbox_ratio")
+        if not isinstance(bbox_ratio, list) or len(bbox_ratio) != 4:
+            bbox = element.get("bbox", {}) if isinstance(element.get("bbox"), dict) else {}
+            x = float(bbox.get("x", 0.0))
+            y = float(bbox.get("y", 0.0))
+            w = float(bbox.get("width", 0.0))
+            h = float(bbox.get("height", 0.0))
+            if image_width > 0 and image_height > 0:
+                bbox_ratio = [
+                    x / image_width,
+                    y / image_height,
+                    (x + w) / image_width,
+                    (y + h) / image_height,
+                ]
+            else:
+                bbox_ratio = [0.0, 0.0, 0.0, 0.0]
+
+        element["element_id"] = _element_fingerprint(
+            element_type=str(element.get("element_type", "unknown")),
+            label=str(element.get("label", "")),
+            bbox_ratio=[float(v) for v in bbox_ratio],
+        )
+        changed = True
+
+    return changed
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -418,7 +483,7 @@ def _error_hint(exc: Exception) -> str | None:
     if isinstance(exc, OmniConfigError):
         return "Fix .omni.json validation errors, or pass --config <path> to a valid config file."
     if isinstance(exc, ResolutionError):
-        return "Use coordinates (x,y), element:<index>, a fuzzy label, region:<name>, or target:<name> with a loaded config."
+        return "Use coordinates (x,y), element:<index>, id:<element_id>, fuzzy label + hints, region:<name>, or target:<name> with a loaded config."
     if isinstance(exc, UserInputError):
         return "Run the subcommand with --help and correct the provided arguments."
     if isinstance(exc, CheckCommandError):
@@ -582,6 +647,9 @@ class OmniRuntime:
         if use_cache and cache_path.exists():
             with cache_path.open("r", encoding="utf-8") as handle:
                 data = json.load(handle)
+            if _ensure_elements_have_ids(data):
+                with cache_path.open("w", encoding="utf-8") as handle:
+                    json.dump(data, handle)
             return data, True, ""
 
         model_logs = self._ensure_loaded()
@@ -685,6 +753,11 @@ class OmniRuntime:
                 structured_elements.append(
                     {
                         "index": idx,
+                        "element_id": _element_fingerprint(
+                            element_type=element_type,
+                            label=_safe_label(element.get("content")),
+                            bbox_ratio=bbox_ratio,
+                        ),
                         "bbox": bbox_xywh_pixel,
                         "label": _safe_label(element.get("content")),
                         "element_type": element_type,
@@ -713,6 +786,7 @@ class OmniRuntime:
             }
 
         parsed_data, parse_logs = self._captured_call(_run_parse)
+        _ensure_elements_have_ids(parsed_data)
         logs = model_logs + parse_logs
 
         if use_cache:
@@ -819,6 +893,34 @@ def _size_similarity(a_bbox: dict[str, int], b_bbox: dict[str, int]) -> float:
     return max(0.0, min(1.0, (width_ratio + height_ratio) / 2.0))
 
 
+def _ambiguity_summary(
+    *,
+    ranked: list[dict[str, Any]],
+    score_key: str,
+    ambiguity_gap_threshold: float = 0.08,
+) -> dict[str, Any]:
+    if not ranked:
+        return {
+            "ambiguous": True,
+            "top_score": None,
+            "second_score": None,
+            "top2_gap": None,
+            "reason": "no_candidates",
+        }
+
+    top = float(ranked[0].get(score_key, 0.0))
+    second = float(ranked[1].get(score_key, 0.0)) if len(ranked) > 1 else 0.0
+    gap = top - second if len(ranked) > 1 else top
+    ambiguous = len(ranked) > 1 and gap < float(ambiguity_gap_threshold)
+    return {
+        "ambiguous": bool(ambiguous),
+        "top_score": top,
+        "second_score": second if len(ranked) > 1 else None,
+        "top2_gap": gap if len(ranked) > 1 else None,
+        "reason": "close_scores" if ambiguous else "clear_winner",
+    }
+
+
 def _match_debug_visual(
     *,
     image1_path: Path,
@@ -894,12 +996,13 @@ def _resolve_element_by_spec(
 
 
 def _print_parse_table(elements: list[dict[str, Any]]) -> None:
-    headers = ["idx", "type", "conf", "x", "y", "w", "h", "label"]
+    headers = ["idx", "id", "type", "conf", "x", "y", "w", "h", "label"]
     rows = []
     for element in elements:
         rows.append(
             [
                 str(element["index"]),
+                str(element.get("element_id", "")),
                 str(element["element_type"]),
                 f"{float(element['confidence']):.3f}",
                 str(element["bbox"]["x"]),
@@ -926,11 +1029,12 @@ def _print_parse_table(elements: list[dict[str, Any]]) -> None:
 
 def _print_parse_csv(elements: list[dict[str, Any]]) -> None:
     writer = csv.writer(sys.stdout)
-    writer.writerow(["index", "element_type", "confidence", "x", "y", "width", "height", "label"])
+    writer.writerow(["index", "element_id", "element_type", "confidence", "x", "y", "width", "height", "label"])
     for element in elements:
         writer.writerow(
             [
                 element["index"],
+                element.get("element_id", ""),
                 element["element_type"],
                 element["confidence"],
                 element["bbox"]["x"],
@@ -1214,6 +1318,7 @@ def _cmd_parse(
             "elements": [
                 {
                     "index": element["index"],
+                    "element_id": element.get("element_id"),
                     "bbox": element["bbox"],
                     "label": element["label"],
                     "element_type": element["element_type"],
@@ -1389,6 +1494,7 @@ def _cmd_locate(
         candidates.append(
             {
                 "index": int(element["index"]),
+                "element_id": str(element.get("element_id", "")),
                 "label": str(element.get("label", "")),
                 "element_type": str(element.get("element_type", "unknown")),
                 "confidence": float(element.get("confidence", 0.0)),
@@ -1407,10 +1513,11 @@ def _cmd_locate(
             }
         )
 
-    if not candidates and resolved.get("mode") in {"element", "region", "coordinates", "label"}:
+    if not candidates and resolved.get("mode") in {"element", "element_id", "region", "coordinates", "label"}:
         candidates.append(
             {
                 "index": int(resolved.get("element_index", -1)),
+                "element_id": str(resolved.get("element_id", "")),
                 "label": str(resolved.get("element_label", "")),
                 "element_type": None,
                 "confidence": None,
@@ -1423,6 +1530,13 @@ def _cmd_locate(
                 "side_score": resolved.get("matched_side_score"),
                 "distance_to_near_px": resolved.get("distance_to_near_px"),
             }
+        )
+
+    ambiguity = _ambiguity_summary(ranked=candidates, score_key="score")
+    warnings: list[str] = []
+    if ambiguity["ambiguous"]:
+        warnings.append(
+            "locate result is ambiguous: top candidates have close scores; use near/side/within hints or target selectors."
         )
 
     debug_path = None
@@ -1438,6 +1552,7 @@ def _cmd_locate(
     payload = {
         "status": "success",
         "error": None,
+        "warnings": warnings,
         "meta": _meta(
             response_context=response_context,
             image_path=str(image_path),
@@ -1464,6 +1579,7 @@ def _cmd_locate(
             "resolved": resolved,
             "candidates": candidates,
             "total_candidates": len(ranked_raw),
+            "ambiguity": ambiguity,
         },
     }
     _write_json_stdout(payload, response_context=response_context)
@@ -1818,6 +1934,7 @@ def _cmd_match(
         scored_candidates.append(
             {
                 "index": int(candidate["index"]),
+                "element_id": str(candidate.get("element_id", "")),
                 "label": str(candidate.get("label", "")),
                 "element_type": str(candidate.get("element_type", "unknown")),
                 "confidence": float(candidate.get("confidence", 0.0)),
@@ -1835,6 +1952,12 @@ def _cmd_match(
     scored_candidates.sort(
         key=lambda item: (-item["match_score"], -item["query_score"], int(item["index"]))
     )
+
+    ambiguity = _ambiguity_summary(ranked=scored_candidates, score_key="match_score")
+    if ambiguity["ambiguous"]:
+        warnings.append(
+            "match result is ambiguous: top candidates have close match_score values; add anchors or stronger query hints."
+        )
 
     if not scored_candidates:
         raise ProcessingError("Unable to score candidates in image2.")
@@ -1900,6 +2023,7 @@ def _cmd_match(
             "source": {
                 "image": str(image1_path),
                 "index": int(source["index"]),
+                "element_id": str(source.get("element_id", "")),
                 "label": str(source.get("label", "")),
                 "element_type": str(source.get("element_type", "unknown")),
                 "confidence": float(source.get("confidence", 0.0)),
@@ -1912,6 +2036,7 @@ def _cmd_match(
             "delta": delta,
             "candidates": scored_candidates[: max(1, int(args.top_k))],
             "total_candidates": len(scored_candidates),
+            "ambiguity": ambiguity,
         },
     }
     _write_json_stdout(payload, response_context=response_context)
@@ -2255,7 +2380,7 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         "  \"image_width\": int,\n"
         "  \"image_height\": int,\n"
         "  \"elements\": [\n"
-        "    {\"index\": int, \"bbox\": {\"x\": int, \"y\": int, \"width\": int, \"height\": int},\n"
+        "    {\"index\": int, \"element_id\": str, \"bbox\": {\"x\": int, \"y\": int, \"width\": int, \"height\": int},\n"
         "     \"label\": str, \"element_type\": str, \"confidence\": float, \"interactable\": bool}\n"
         "  ]\n"
         "}"
@@ -2427,6 +2552,7 @@ def _build_parser(repo_root: Path) -> tuple[OmniArgumentParser, dict[str, argpar
         "Examples:\n"
         "  omni measure screen.png --from 120,300 --to 450,300\n"
         "  omni measure screen.png --from element:3 --to element:7 --edge center\n"
+        "  omni measure screen.png --from id:e_abc123 --to id:e_def456 --axis x\n"
         "  omni measure screen.png --from \"sidebar\" --to \"main content\" --axis x"
     )
     measure_parser = subparsers.add_parser(
