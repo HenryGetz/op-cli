@@ -1,4 +1,4 @@
-"""Reference and edge resolution helpers for omni CLI."""
+"""Reference and edge resolution helpers for caliper CLI."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def _expand_target_reference(
         raise ResolutionError(f"Invalid {role} target reference '{spec}'.")
     if targets is None:
         raise ResolutionConfigRequiredError(
-            f"{role} uses target reference '{spec}', but no project config is loaded. Provide --config <path> or create .omni.json."
+            f"{role} uses target reference '{spec}', but no project config is loaded. Provide --config <path> or create .caliper.json."
         )
     if target_name not in targets:
         available = ", ".join(sorted(targets.keys())) or "<none>"
@@ -436,7 +436,7 @@ def resolve_region_ref(
         raise ResolutionError(f"Invalid {role} region reference '{spec}'.")
     if regions is None:
         raise ResolutionConfigRequiredError(
-            f"{role} uses region reference '{spec}', but no project config is loaded. Provide --config <path> or create .omni.json."
+            f"{role} uses region reference '{spec}', but no project config is loaded. Provide --config <path> or create .caliper.json."
         )
     if region_name not in regions:
         available = ", ".join(sorted(regions.keys())) or "<none>"

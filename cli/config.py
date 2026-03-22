@@ -1,4 +1,4 @@
-"""Project config discovery and validation for omni CLI."""
+"""Project config discovery and validation for caliper CLI."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-CONFIG_FILENAME = ".omni.json"
+CONFIG_FILENAME = ".caliper.json"
 SUPPORTED_ASSERTION_TYPES = {
     "region_dimension",
     "measurement",

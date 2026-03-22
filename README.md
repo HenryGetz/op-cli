@@ -1,139 +1,149 @@
-# Omni CLI (`omni`)
+# CaliperUI CLI (`caliper` / `cui`)
 
 Production CLI wrapper around OmniParser and UIED for deterministic, script-friendly usage by humans and AI agents.
 
+`caliper` is the primary command. `cui` is a strict alias that routes to the same CLI entrypoint and behavior.
+
 ## Installation
 
-`omni.py` lives at `cli/omni.py` and is launched by the POSIX wrapper at `bin/omni`.
+`caliper.py` lives at `cli/caliper.py` and is launched by the POSIX wrapper at `bin/caliper`.
+`bin/cui` is an alias wrapper that delegates to `bin/caliper`.
 
 Recommended setup:
 
 ```sh
-ln -sf /home/wavy/ai/op-cli/bin/omni ~/bin/omni
-chmod +x ~/bin/omni
+ln -sf /home/wavy/ai/op-cli/bin/caliper ~/bin/caliper
+ln -sf /home/wavy/ai/op-cli/bin/cui ~/bin/cui
+chmod +x ~/bin/caliper
+chmod +x ~/bin/cui
 ```
 
 The wrapper auto-discovers both:
 
-- CLI root (folder containing `cli/omni.py`)
+- CLI root (folder containing `cli/caliper.py`)
 - OmniParser runtime root (folder containing `util/utils.py`)
 
 Discovery sources (in order):
 
 1. Env vars
-2. `~/.config/omni/install.env`
+2. `~/.config/caliper/install.env`
 3. Common local install paths
 
-Optional `~/.config/omni/install.env` example:
+Optional `~/.config/caliper/install.env` example:
 
 ```sh
-OMNI_CLI_ROOT=/path/to/op-cli
+CALIPER_CLI_ROOT=/path/to/op-cli
 OMNIPARSER_ROOT=/path/to/OmniParser
-OMNI_PYTHON=/path/to/python
+CALIPER_PYTHON=/path/to/python
 ```
 
 Optional environment overrides:
 
-- `OMNI_CLI_ROOT` (explicit CLI root containing `cli/omni.py`)
-- `OMNI_ROOT` (legacy alias for CLI root)
-- `OMNIPARSER_ROOT` / `OMNI_RUNTIME_ROOT` (OmniParser runtime root with `util/utils.py`)
+- `CALIPER_CLI_ROOT` (explicit CLI root containing `cli/caliper.py`)
+- `CALIPER_ROOT` (legacy alias for CLI root)
+- `OMNIPARSER_ROOT` / `CALIPER_RUNTIME_ROOT` (OmniParser runtime root with `util/utils.py`)
 - `UIED_ROOT` (UIED root with `detect_compo/` and `detect_merge/`)
-- `OMNI_PYTHON` (force interpreter)
-- `OMNI_MODEL_DIR` (default: `$OMNIPARSER_ROOT/weights`)
-- `OMNI_INSTALL_ENV` (override install-env file path)
+- `CALIPER_PYTHON` (force interpreter)
+- `CALIPER_MODEL_DIR` (default: `$OMNIPARSER_ROOT/weights`)
+- `CALIPER_INSTALL_ENV` (override install-env file path)
 
 ## Quick Start
 
 ```sh
 # Parse to structured JSON
-omni parse screenshot.png --quiet
+caliper parse screenshot.png --quiet
+
+# Exact alias (same behavior)
+cui parse screenshot.png --quiet
 
 # Reference by stable element id
-omni measure screenshot.png --from id:e_abc123... --to id:e_def456... --quiet
+caliper measure screenshot.png --from id:e_abc123... --to id:e_def456... --quiet
 
 # Parse + save OmniParser-native annotated debug image
-omni parse screenshot.png --save-annotated /tmp/annotated.png --quiet
+caliper parse screenshot.png --save-annotated /tmp/annotated.png --quiet
 
 # Render full labeled debug image (idx/type/conf/label)
-omni debug screenshot.png -o /tmp/debug-labeled.png --quiet
+caliper debug screenshot.png -o /tmp/debug-labeled.png --quiet
 
 # Locate best match with proximity hints + ranked debug image
-omni locate screenshot.png --query "label:save|side:right|near:1400,900" --save-annotated /tmp/locate.png --quiet
+caliper locate screenshot.png --query "label:save|side:right|near:1400,900" --save-annotated /tmp/locate.png --quiet
 
 # Match one element across two screenshots robustly
-omni match before.png after.png --query "label:save|side:right|near:1400,900" --anchor "region:sidebar" --save-annotated /tmp/match.png --quiet
+caliper match before.png after.png --query "label:save|side:right|near:1400,900" --anchor "region:sidebar" --save-annotated /tmp/match.png --quiet
 
 # Pixel ruler
-omni measure screenshot.png --from element:0 --to element:1 --edge center
+caliper measure screenshot.png --from element:0 --to element:1 --edge center
 
 # Crop by coordinates
-omni crop screenshot.png --region 0,0,200,200 -o /tmp/crop.png
+caliper crop screenshot.png --region 0,0,200,200 -o /tmp/crop.png
 
 # Structural diff
-omni diff before.png after.png --tolerance 5 --save-diff /tmp/diff.png
+caliper diff before.png after.png --tolerance 5 --save-diff /tmp/diff.png
 
 # Metadata summary
-omni info screenshot.png
+caliper info screenshot.png
 
 # Assertion-driven checks
-omni check screenshot.png --quiet
+caliper check screenshot.png --quiet
 
 # Overlay comparison
-omni overlay before.png after.png -o /tmp/overlay.png --bbox-ref --bbox-test
+caliper overlay before.png after.png -o /tmp/overlay.png --bbox-ref --bbox-test
 
 # Print schema path for a command
-omni parse --schema
+caliper parse --schema
 
 # Diagnose runtime/model/dependency health
-omni doctor --image screenshot.png --quiet
+caliper doctor --image screenshot.png --quiet
 
 # Parse with UIED backend
-omni parse screenshot.png --engine uied --quiet
+caliper parse screenshot.png --engine uied --quiet
 
 # Generate labeled UIED debug artifact
-omni debug screenshot.png --engine uied -o /tmp/uied-debug.png --quiet
+caliper debug screenshot.png --engine uied -o /tmp/uied-debug.png --quiet
 
 # Persist install paths once for future invocations
-omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
+caliper setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
 ```
 
 ## Commands
 
-- `omni parse <image>`
-- `omni debug <image> -o <output>`
-- `omni locate <image> --query <selector>`
-- `omni match <image1> <image2> --query <selector>`
-- `omni doctor [--image <path>]`
-- `omni measure <image> --from <spec> --to <spec>`
-- `omni crop <image> --region <x,y,w,h> | --region-name <name> | --element <index>`
-- `omni diff <image1> <image2>`
-- `omni info <image>`
-- `omni check <image>`
-- `omni overlay <image1> <image2> -o <output_path>`
-- `omni setup --cli-root <path> --runtime-root <path> [--uied-root <path>] [--python <path>]`
-- `omni help` and `omni <subcommand> --help`
+- `caliper parse <image>`
+- `caliper debug <image> -o <output>`
+- `caliper locate <image> --query <selector>`
+- `caliper match <image1> <image2> --query <selector>`
+- `caliper doctor [--image <path>]`
+- `caliper measure <image> --from <spec> --to <spec>`
+- `caliper crop <image> --region <x,y,w,h> | --region-name <name> | --element <index>`
+- `caliper diff <image1> <image2>`
+- `caliper info <image>`
+- `caliper check <image>`
+- `caliper overlay <image1> <image2> -o <output_path>`
+- `caliper setup --cli-root <path> --runtime-root <path> [--uied-root <path>] [--python <path>]`
+- `caliper help` and `caliper <subcommand> --help`
+
+Every command above can be run with `cui` instead of `caliper`.
 
 ## Persistent Setup
 
-Use wrapper-level setup once, then all future runs reuse these paths from `~/.config/omni/install.env`.
+Use wrapper-level setup once, then all future runs reuse these paths from `~/.config/caliper/install.env`.
 
 ```sh
 # Save defaults
-omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
+caliper setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
 
 # Include preferred Python
-omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED --python /path/to/python
+caliper setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED --python /path/to/python
 
 # Inspect saved config
-omni setup --show
+caliper setup --show
 
 # Clear saved config
-omni setup --clear
+caliper setup --clear
 ```
 
 Setup validations:
 
-- `--cli-root` must contain `cli/omni.py`
+- `--cli-root` must contain `cli/caliper.py`
 - `--runtime-root` must contain `util/utils.py`
 - `--uied-root` (optional) must contain `detect_compo/ip_region_proposal.py` and `detect_merge/merge.py`
 - `--python` must be executable
@@ -142,7 +152,7 @@ Setup validations:
 
 ## UIED Backend
 
-`omni` supports two detection engines:
+`caliper` supports two detection engines:
 
 - `omniparser` (default)
 - `uied`
@@ -151,13 +161,13 @@ UIED usage:
 
 ```sh
 # Parse using UIED
-omni parse screenshot.png --engine uied --quiet
+caliper parse screenshot.png --engine uied --quiet
 
 # Use explicit UIED install path
-omni parse screenshot.png --engine uied --uied-root /path/to/UIED --quiet
+caliper parse screenshot.png --engine uied --uied-root /path/to/UIED --quiet
 
 # Disable UIED OCR (component-only)
-omni parse screenshot.png --engine uied --uied-text-engine none --quiet
+caliper parse screenshot.png --engine uied --uied-text-engine none --quiet
 ```
 
 UIED-specific global flags:
@@ -176,11 +186,14 @@ Notes:
 
 Cross-platform launchers are included in `bin/`:
 
-- `bin/omni` (POSIX sh)
-- `bin/omni.cmd` (Windows cmd)
-- `bin/omni.ps1` (PowerShell)
+- `bin/caliper` (POSIX sh)
+- `bin/caliper.cmd` (Windows cmd)
+- `bin/caliper.ps1` (PowerShell)
+- `bin/cui` (POSIX alias wrapper)
+- `bin/cui.cmd` (Windows cmd alias wrapper)
+- `bin/cui.ps1` (PowerShell alias wrapper)
 
-On Windows, place these in a directory on `PATH`. `omni.cmd` delegates to `omni.ps1`, which supports the same environment variables and `setup` flow.
+On Windows, place these in a directory on `PATH`. `caliper.cmd` delegates to `caliper.ps1`; `cui.cmd` delegates to `caliper.cmd`.
 
 ## Global Flags
 
@@ -192,17 +205,17 @@ On Windows, place these in a directory on `PATH`. `omni.cmd` delegates to `omni.
 - `--schema` - print JSON schema path for the selected subcommand
 - `--model-dir <path>` - override model path
 - `--runtime-root <path>` - override OmniParser runtime root (must contain `util/utils.py`)
-- `--config <path>` - explicit `.omni.json` path (overrides discovery)
+- `--config <path>` - explicit `.caliper.json` path (overrides discovery)
 - `--device cpu|cuda` - inference device (default `cpu`)
-- `--cache/--no-cache` - parse cache toggle (`~/.cache/omni`)
+- `--cache/--no-cache` - parse cache toggle (`~/.cache/caliper`)
 
 ## Project Configuration
 
-`omni` supports project-local config via `.omni.json`.
+`caliper` supports project-local config via `.caliper.json`.
 
 ### Discovery behavior
 
-For every subcommand invocation, `omni` searches from current working directory upward for `.omni.json`, stopping at `$HOME` or filesystem root (whichever comes first). If not found, commands still run normally unless config is required (for example `omni check`, or `region:<name>` references).
+For every subcommand invocation, `caliper` searches from current working directory upward for `.caliper.json`, stopping at `$HOME` or filesystem root (whichever comes first). If not found, commands still run normally unless config is required (for example `caliper check`, or `region:<name>` references).
 
 Use `--config <path>` to bypass discovery and load a specific config file.
 
@@ -220,7 +233,7 @@ Examples:
 - `submit|near:300,220|within:250`
 - `*|side:bottom|near:960,1020`
 
-These selectors work anywhere a reference string is accepted (`omni locate`, `omni measure --from/--to`, and `measurement` assertions in `.omni.json`).
+These selectors work anywhere a reference string is accepted (`caliper locate`, `caliper measure --from/--to`, and `measurement` assertions in `.caliper.json`).
 
 `parse` emits `element_id` per detection. `id:<element_id>` (or `element-id:<element_id>`) is accepted in selectors anywhere references are used.
 
@@ -244,10 +257,10 @@ Example:
 
 Then use them in commands and assertions:
 
-- `omni locate screenshot.png --query target:primary-save`
-- `omni measure screenshot.png --from target:left-rail --to target:primary-save`
-- `omni match before.png after.png --query target:primary-save --anchor target:left-rail`
-- `.omni.json` measurement assertions can use `from.ref`/`to.ref` as `target:<name>`
+- `caliper locate screenshot.png --query target:primary-save`
+- `caliper measure screenshot.png --from target:left-rail --to target:primary-save`
+- `caliper match before.png after.png --query target:primary-save --anchor target:left-rail`
+- `.caliper.json` measurement assertions can use `from.ref`/`to.ref` as `target:<name>`
 
 ### Schema
 
@@ -312,7 +325,7 @@ Then use them in commands and assertions:
 - target cycles are rejected at config-load time
 - relative `reference_image` resolves relative to config file directory
 
-On config validation failure, `omni` exits code `5` with a specific field-level error.
+On config validation failure, `caliper` exits code `5` with a specific field-level error.
 
 ## Named Regions
 
@@ -321,13 +334,13 @@ Named regions are usable in commands and assertions via `region:<name>` referenc
 ### Measure syntax
 
 ```sh
-omni measure screenshot.png --from region:sidebar --to region:main-content --edge right
+caliper measure screenshot.png --from region:sidebar --to region:main-content --edge right
 ```
 
 ### Crop syntax
 
 ```sh
-omni crop screenshot.png --region-name sidebar -o /tmp/sidebar.png
+caliper crop screenshot.png --region-name sidebar -o /tmp/sidebar.png
 ```
 
 `--padding` works for `--region-name` and `--element`.
@@ -348,29 +361,29 @@ omni crop screenshot.png --region-name sidebar -o /tmp/sidebar.png
 
 These edges apply to both region and element references.
 
-## `omni check` Reference
+## `caliper check` Reference
 
 ### Usage
 
 ```sh
-omni check <image> [--config <path>] [--only <id,id,...>] [--skip <id,id,...>] [--save-report <path>] [--save-annotated <path>] [--quiet]
+caliper check <image> [--config <path>] [--only <id,id,...>] [--skip <id,id,...>] [--save-report <path>] [--save-annotated <path>] [--quiet]
 ```
 
 ### Behavior
 
-1. Loads and validates project config (`.omni.json`) (required)
+1. Loads and validates project config (`.caliper.json`) (required)
 2. Runs only the assertions selected by filters
 3. Skips OmniParser inference when selected assertions are static-only
 4. Emits JSON report to stdout
 5. Optionally writes report to disk via `--save-report`
 6. Optionally saves annotated debug image via `--save-annotated`
 
-## `omni locate` Reference
+## `caliper locate` Reference
 
 ### Usage
 
 ```sh
-omni locate <image> --query <selector> [--edge <edge>] [--top-k <n>] [--require-unambiguous] [--save-annotated <path>] [--quiet]
+caliper locate <image> --query <selector> [--edge <edge>] [--top-k <n>] [--require-unambiguous] [--save-annotated <path>] [--quiet]
 ```
 
 ### Purpose
@@ -388,12 +401,12 @@ omni locate <image> --query <selector> [--edge <edge>] [--top-k <n>] [--require-
 - `locate.ambiguity`: ambiguity summary (`top2_gap`, `ambiguous`) to guard autonomous actions
 - `meta.annotated_path`: debug image path when requested
 
-## `omni match` Reference
+## `caliper match` Reference
 
 ### Usage
 
 ```sh
-omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <n>] [--min-score <float>] [--require-unambiguous] [--save-annotated <path>] [--quiet]
+caliper match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <n>] [--min-score <float>] [--require-unambiguous] [--save-annotated <path>] [--quiet]
 ```
 
 ### Purpose
@@ -414,12 +427,12 @@ omni match <image1> <image2> --query <selector> [--anchor <selector>] [--top-k <
 
 `match.ambiguity` is included to highlight close-call matches; agents can enforce this automatically with `--require-unambiguous`.
 
-## `omni doctor` Reference
+## `caliper doctor` Reference
 
 ### Usage
 
 ```sh
-omni doctor [--image <path>] [--runtime-root <path>] [--model-dir <path>] [--quiet]
+caliper doctor [--image <path>] [--runtime-root <path>] [--model-dir <path>] [--quiet]
 ```
 
 ### Purpose
@@ -437,12 +450,12 @@ omni doctor [--image <path>] [--runtime-root <path>] [--model-dir <path>] [--qui
 - `doctor.install_env`: resolved install env path + parsed values
 - `doctor.parse_smoke`: parse metrics when image smoke test runs
 
-## `omni debug` Reference
+## `caliper debug` Reference
 
 ### Usage
 
 ```sh
-omni debug <image> -o <output_path> [--max-elements <n>] [--confidence-threshold <float>] [--quiet]
+caliper debug <image> -o <output_path> [--max-elements <n>] [--confidence-threshold <float>] [--quiet]
 ```
 
 ### Purpose
@@ -470,7 +483,7 @@ omni debug <image> -o <output_path> [--max-elements <n>] [--confidence-threshold
     "skipped": 0
   },
   "image": "/abs/path/screenshot.png",
-  "config": "/abs/path/.omni.json",
+  "config": "/abs/path/.caliper.json",
   "results": [
     {
       "id": "sidebar-width",
@@ -502,12 +515,12 @@ omni debug <image> -o <output_path> [--max-elements <n>] [--confidence-threshold
 - `5` = config missing/invalid
 - `2` = processing/runtime failure
 
-## `omni overlay` Reference
+## `caliper overlay` Reference
 
 ### Usage
 
 ```sh
-omni overlay <image1> <image2> -o <output_path> [--opacity <float>] [--bbox-ref [#RRGGBB]] [--bbox-test [#RRGGBB]] [--draw-regions] [--quiet]
+caliper overlay <image1> <image2> -o <output_path> [--opacity <float>] [--bbox-ref [#RRGGBB]] [--bbox-test [#RRGGBB]] [--draw-regions] [--quiet]
 ```
 
 ### Notes
@@ -575,7 +588,7 @@ Canonical JSON schema files are provided in `cli/schemas/`:
 
 Contract smoke test helper:
 
-- `cli/tests/contract_smoke.py` (run with `OMNI_TEST_IMAGE=/abs/path/image.png`)
+- `cli/tests/contract_smoke.py` (run with `CALIPER_TEST_IMAGE=/abs/path/image.png`)
 
 ## Exit Codes (General)
 
@@ -592,7 +605,7 @@ Recommended agent workflow:
 
 1. Modify source code (CSS, JSX, etc.)
 2. Trigger screenshot capture (Playwright, Puppeteer, etc.)
-3. Run: `omni check screenshot.png --quiet`
+3. Run: `caliper check screenshot.png --quiet`
 4. Parse stdout JSON
 5. If `status == "success"` and `result == "pass"`: done
 6. If `status == "success"` and `result == "fail"`: read `results[].details` for each failed assertion
@@ -604,7 +617,7 @@ Additional recommendations:
 - always use absolute image paths in automation
 - keep `--quiet` enabled for parser-safe stdout JSON
 - use `--save-report` for audit trail artifacts
-- when label matching is unstable, use `omni locate ... --query "label:...|near:...|side:..."` before `measure/check`
+- when label matching is unstable, use `caliper locate ... --query "label:...|near:...|side:..."` before `measure/check`
 - for autonomous actions, add `--require-unambiguous` to `locate` and `match`
 - pin runtime portability with `--runtime-root <path>` (or `OMNIPARSER_ROOT`) in CI/agents
 - use `--only` and `--skip` to narrow expensive checks during iterative tuning

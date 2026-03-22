@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://op-cli.local/schemas/diff.v1.json",
-  "title": "omni diff response",
+  "title": "caliper diff response",
   "type": "object",
   "required": [
     "schema_version",

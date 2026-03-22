@@ -8,6 +8,6 @@ if exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" (
   set "POWERSHELL_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 )
 
-"%POWERSHELL_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%omni.ps1" %*
+"%POWERSHELL_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%caliper.ps1" %*
 exit /b %ERRORLEVEL%
 

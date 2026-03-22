@@ -1,4 +1,4 @@
-"""Assertion evaluation engine for `omni check`."""
+"""Assertion evaluation engine for `caliper check`."""
 
 from __future__ import annotations
 

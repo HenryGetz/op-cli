@@ -1,4 +1,4 @@
-"""`omni check` command implementation."""
+"""`caliper check` command implementation."""
 
 from __future__ import annotations
 
@@ -47,13 +47,13 @@ def add_check_subparser(
 ) -> Any:
     epilog = (
         "Examples:\n"
-        "  omni check screenshot.png --quiet\n"
-        "  omni check screenshot.png --only sidebar-width,topbar-height\n"
-        "  omni check screenshot.png --skip min-elements --save-report /tmp/report.json"
+        "  caliper check screenshot.png --quiet\n"
+        "  caliper check screenshot.png --only sidebar-width,topbar-height\n"
+        "  caliper check screenshot.png --skip min-elements --save-report /tmp/report.json"
     )
     parser = subparsers.add_parser(
         "check",
-        help="Run project assertions from .omni.json against a screenshot.",
+        help="Run project assertions from .caliper.json against a screenshot.",
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -106,7 +106,7 @@ def run_check_command(
 ) -> tuple[dict[str, Any], int]:
     if project_config is None:
         raise OmniConfigRequiredError(
-            "`omni check` requires a project config. Provide --config <path> or create .omni.json."
+            "`caliper check` requires a project config. Provide --config <path> or create .caliper.json."
         )
 
     started_ms = time.perf_counter() * 1000.0

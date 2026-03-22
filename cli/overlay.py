@@ -1,4 +1,4 @@
-"""`omni overlay` command implementation."""
+"""`caliper overlay` command implementation."""
 
 from __future__ import annotations
 
@@ -43,9 +43,9 @@ def add_overlay_subparser(
 ) -> Any:
     epilog = (
         "Examples:\n"
-        "  omni overlay before.png after.png -o /tmp/overlay.png\n"
-        "  omni overlay before.png after.png -o /tmp/overlay.png --bbox-ref --bbox-test\n"
-        "  omni overlay before.png after.png -o /tmp/overlay.png --bbox-ref '#FF0000' --bbox-test '#0000FF'"
+        "  caliper overlay before.png after.png -o /tmp/overlay.png\n"
+        "  caliper overlay before.png after.png -o /tmp/overlay.png --bbox-ref --bbox-test\n"
+        "  caliper overlay before.png after.png -o /tmp/overlay.png --bbox-ref '#FF0000' --bbox-test '#0000FF'"
     )
     parser = subparsers.add_parser(
         "overlay",

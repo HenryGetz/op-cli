@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://op-cli.local/schemas/error.v1.json",
-  "title": "omni error object",
+  "title": "caliper error object",
   "type": "object",
   "required": [
     "code",

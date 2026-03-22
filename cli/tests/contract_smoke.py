@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Light contract regression checks for omni CLI JSON envelopes.
+"""Light contract regression checks for caliper CLI JSON envelopes.
 
 Usage:
-  OMNI_TEST_IMAGE=/abs/path/image.png python3 cli/tests/contract_smoke.py
+  CALIPER_TEST_IMAGE=/abs/path/image.png python3 cli/tests/contract_smoke.py
 """
 
 from __future__ import annotations
@@ -52,16 +52,16 @@ def check_parse_specific(payload: dict) -> None:
 
 
 def main() -> int:
-    image = os.environ.get("OMNI_TEST_IMAGE")
+    image = os.environ.get("CALIPER_TEST_IMAGE")
     if not image:
-        raise SystemExit("Set OMNI_TEST_IMAGE=/absolute/path/to/image before running")
+        raise SystemExit("Set CALIPER_TEST_IMAGE=/absolute/path/to/image before running")
     image_path = Path(image).expanduser().resolve()
     if not image_path.exists():
-        raise SystemExit(f"OMNI_TEST_IMAGE not found: {image_path}")
+        raise SystemExit(f"CALIPER_TEST_IMAGE not found: {image_path}")
 
-    work = Path("/tmp/omni-contract-smoke").resolve()
+    work = Path("/tmp/caliper-contract-smoke").resolve()
     work.mkdir(parents=True, exist_ok=True)
-    config_path = work / ".omni.json"
+    config_path = work / ".caliper.json"
     config_path.write_text(
         json.dumps(
             {
@@ -92,17 +92,18 @@ def main() -> int:
     )
 
     checks = [
-        ("parse", ["omni", "parse", str(image_path), "--quiet"]),
-        ("debug", ["omni", "debug", str(image_path), "-o", str(work / "debug.png"), "--quiet"]),
-        ("locate", ["omni", "locate", str(image_path), "--query", "target:probe", "--quiet"]),
-        ("match", ["omni", "match", str(image_path), str(image_path), "--query", "target:probe", "--anchor", "target:left-rail", "--quiet"]),
-        ("doctor", ["omni", "doctor", "--image", str(image_path), "--quiet"]),
-        ("measure", ["omni", "measure", str(image_path), "--from", "target:left-rail", "--to", "target:right-rail", "--quiet"]),
-        ("crop", ["omni", "crop", str(image_path), "--region", "0,0,20,20", "-o", str(work / "crop.png"), "--quiet"]),
-        ("diff", ["omni", "diff", str(image_path), str(image_path), "--quiet"]),
-        ("info", ["omni", "info", str(image_path), "--quiet"]),
-        ("check", ["omni", "check", str(image_path), "--config", str(config_path), "--quiet"]),
-        ("overlay", ["omni", "overlay", str(image_path), str(image_path), "-o", str(work / "overlay.png"), "--quiet"]),
+        ("parse", ["caliper", "parse", str(image_path), "--quiet"]),
+        ("parse-alias", ["cui", "parse", str(image_path), "--quiet"]),
+        ("debug", ["caliper", "debug", str(image_path), "-o", str(work / "debug.png"), "--quiet"]),
+        ("locate", ["caliper", "locate", str(image_path), "--query", "target:probe", "--quiet"]),
+        ("match", ["caliper", "match", str(image_path), str(image_path), "--query", "target:probe", "--anchor", "target:left-rail", "--quiet"]),
+        ("doctor", ["caliper", "doctor", "--image", str(image_path), "--quiet"]),
+        ("measure", ["caliper", "measure", str(image_path), "--from", "target:left-rail", "--to", "target:right-rail", "--quiet"]),
+        ("crop", ["caliper", "crop", str(image_path), "--region", "0,0,20,20", "-o", str(work / "crop.png"), "--quiet"]),
+        ("diff", ["caliper", "diff", str(image_path), str(image_path), "--quiet"]),
+        ("info", ["caliper", "info", str(image_path), "--quiet"]),
+        ("check", ["caliper", "check", str(image_path), "--config", str(config_path), "--quiet"]),
+        ("overlay", ["caliper", "overlay", str(image_path), str(image_path), "-o", str(work / "overlay.png"), "--quiet"]),
     ]
 
     for command, cmd in checks:
@@ -110,12 +111,12 @@ def main() -> int:
         require(code in {0, 4}, f"{command}: unexpected exit code {code}")
         require(stderr == "", f"{command}: expected quiet stderr")
         payload = parse_json(stdout)
-        check_envelope(payload, command)
-        if command == "parse":
+        check_envelope(payload, cmd[1])
+        if command in {"parse", "parse-alias"}:
             check_parse_specific(payload)
 
     for command in ["parse", "debug", "locate", "match", "doctor", "measure", "crop", "diff", "info", "check", "overlay"]:
-        code, stdout, stderr = run(["omni", command, "--schema"], cwd=work)
+        code, stdout, stderr = run(["caliper", command, "--schema"], cwd=work)
         require(code == 0, f"schema:{command}: exit code")
         require(stderr == "", f"schema:{command}: expected empty stderr")
         payload = parse_json(stdout)

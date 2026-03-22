@@ -66,6 +66,7 @@ SUPPORTED_IMAGE_EXTENSIONS = {
 
 COMMON_RUNTIME_ROOTS = (
     "~/ai/omni-parser/OmniParser",
+    "~/ai/caliper-parser/OmniParser",
     "~/OmniParser",
     "~/src/OmniParser",
     "~/projects/OmniParser",
@@ -245,7 +246,7 @@ def _sha256_file(path: Path) -> str:
 
 
 def _cache_root() -> Path:
-    return Path.home() / ".cache" / "omni"
+    return Path.home() / ".cache" / "caliper"
 
 
 def _compute_iou_xyxy(a: list[float], b: list[float]) -> float:
@@ -460,7 +461,7 @@ def _omniparser_version(repo_root: Path) -> str:
 
 
 def _default_model_dir(runtime_root: Path) -> Path:
-    env_override = os.environ.get("OMNI_MODEL_DIR")
+    env_override = os.environ.get("CALIPER_MODEL_DIR")
     if env_override:
         return Path(env_override).expanduser().resolve()
     return (runtime_root / "weights").resolve()
@@ -484,12 +485,12 @@ def _resolve_runtime_root(cli_root: Path, runtime_override: str | None) -> Path:
             )
         return candidate
 
-    env_override = os.environ.get("OMNIPARSER_ROOT") or os.environ.get("OMNI_RUNTIME_ROOT")
+    env_override = os.environ.get("OMNIPARSER_ROOT") or os.environ.get("CALIPER_RUNTIME_ROOT")
     if env_override:
         candidate = Path(env_override).expanduser().resolve()
         if not _is_runtime_root(candidate):
             raise UserInputError(
-                "OMNIPARSER_ROOT/OMNI_RUNTIME_ROOT is set but invalid. "
+                "OMNIPARSER_ROOT/CALIPER_RUNTIME_ROOT is set but invalid. "
                 "Expected util/utils.py under that directory; "
                 f"got: {candidate}"
             )
@@ -505,6 +506,7 @@ def _resolve_runtime_root(cli_root: Path, runtime_override: str | None) -> Path:
             (cli_root.parent / "OmniParser").resolve(),
             (cli_root / "OmniParser").resolve(),
             (cli_root.parent / "omni-parser" / "OmniParser").resolve(),
+            (cli_root.parent / "caliper-parser" / "OmniParser").resolve(),
         ]
     )
     candidates.extend(Path(raw).expanduser().resolve() for raw in COMMON_RUNTIME_ROOTS)
@@ -584,7 +586,7 @@ def _schema_path_for_command(repo_root: Path, command: str) -> Path:
 
 
 def _default_install_env_path() -> Path:
-    return Path(os.environ.get("OMNI_INSTALL_ENV", "~/.config/omni/install.env")).expanduser().resolve()
+    return Path(os.environ.get("CALIPER_INSTALL_ENV", "~/.config/caliper/install.env")).expanduser().resolve()
 
 
 def _parse_install_env_file(path: Path) -> dict[str, str]:
@@ -620,9 +622,9 @@ def _error_hint(exc: Exception) -> str | None:
     if isinstance(exc, FileMissingError):
         return "Verify the file path is absolute or relative to the current directory and that it exists."
     if isinstance(exc, ModelNotFoundError):
-        return "Download model weights into the OmniParser weights directory or set OMNI_MODEL_DIR."
+        return "Download model weights into the OmniParser weights directory or set CALIPER_MODEL_DIR."
     if isinstance(exc, OmniConfigError):
-        return "Fix .omni.json validation errors, or pass --config <path> to a valid config file."
+        return "Fix .caliper.json validation errors, or pass --config <path> to a valid config file."
     if isinstance(exc, ResolutionError):
         return "Use coordinates (x,y), element:<index>, id:<element_id>, fuzzy label + hints, region:<name>, or target:<name> with a loaded config."
     if isinstance(exc, UserInputError):
@@ -997,7 +999,7 @@ class OmniRuntime:
             # UIED expects a package named `config`, while this CLI also has a module named `config`.
             # Keep a backup alias, remove the conflicting module entry and temporarily hide the module path
             # so UIED's `config/CONFIG_UIED.py` can be imported as a package.
-            sys.modules.setdefault("omni_cli_config", existing_config_module)
+            sys.modules.setdefault("caliper_cli_config", existing_config_module)
             config_file = getattr(existing_config_module, "__file__", None)
             if config_file:
                 config_dir = str(Path(config_file).resolve().parent)
@@ -1315,7 +1317,7 @@ class OmniRuntime:
             "remove-bar": True,
         }
 
-        workspace = Path(tempfile.mkdtemp(prefix="omni-uied-"))
+        workspace = Path(tempfile.mkdtemp(prefix="caliper-uied-"))
         input_image_path = workspace / "input.png"
         output_root = workspace / "output"
         output_root.mkdir(parents=True, exist_ok=True)
@@ -2010,11 +2012,11 @@ def _cmd_doctor(
             message="Persistent install env file is missing.",
             details={
                 "path": str(install_env_path),
-                "hint": "Run `omni setup --cli-root <path> --runtime-root <path>` once.",
+                "hint": "Run `caliper setup --cli-root <path> --runtime-root <path>` once.",
             },
         )
 
-    cli_entry = (cli_root / "cli" / "omni.py").resolve()
+    cli_entry = (cli_root / "cli" / "caliper.py").resolve()
     if cli_entry.exists():
         add_check(
             check_id="cli-root",
@@ -2026,7 +2028,7 @@ def _cmd_doctor(
         add_check(
             check_id="cli-root",
             status="fail",
-            message="CLI root is invalid (missing cli/omni.py).",
+            message="CLI root is invalid (missing cli/caliper.py).",
             details={"cli_root": str(cli_root), "cli_entry": str(cli_entry)},
         )
 
@@ -2048,7 +2050,7 @@ def _cmd_doctor(
                 if getattr(args, "runtime_root", None)
                 else (
                     "env"
-                    if (os.environ.get("OMNIPARSER_ROOT") or os.environ.get("OMNI_RUNTIME_ROOT"))
+                    if (os.environ.get("OMNIPARSER_ROOT") or os.environ.get("CALIPER_RUNTIME_ROOT"))
                     else "auto-discovery"
                 ),
             },
@@ -2099,7 +2101,7 @@ def _cmd_doctor(
             existing_config_module = sys.modules.get("config")
             removed_config_paths: list[str] = []
             if existing_config_module is not None and not hasattr(existing_config_module, "__path__"):
-                sys.modules.setdefault("omni_cli_config", existing_config_module)
+                sys.modules.setdefault("caliper_cli_config", existing_config_module)
                 config_file = getattr(existing_config_module, "__file__", None)
                 if config_file:
                     config_dir = str(Path(config_file).resolve().parent)
@@ -2139,7 +2141,7 @@ def _cmd_doctor(
             details={
                 "runtime_root": str(runtime_root) if runtime_root else None,
                 "error": runtime_resolution_error,
-                "hint": "Set OMNIPARSER_ROOT/OMNI_RUNTIME_ROOT or pass --runtime-root.",
+                "hint": "Set OMNIPARSER_ROOT/CALIPER_RUNTIME_ROOT or pass --runtime-root.",
             },
         )
 
@@ -2228,7 +2230,7 @@ def _cmd_doctor(
                     smoke_start = _perf_ms()
                     smoke_cmd = [
                         sys.executable,
-                        str((cli_root / "cli" / "omni.py").resolve()),
+                        str((cli_root / "cli" / "caliper.py").resolve()),
                         "parse",
                         str(image_path),
                         "--engine",
@@ -2289,7 +2291,7 @@ def _cmd_doctor(
                     smoke_start_uied = _perf_ms()
                     smoke_cmd_uied = [
                         sys.executable,
-                        str((cli_root / "cli" / "omni.py").resolve()),
+                        str((cli_root / "cli" / "caliper.py").resolve()),
                         "parse",
                         str(image_path),
                         "--engine",
@@ -2348,13 +2350,13 @@ def _cmd_doctor(
     result = "pass" if not failed else "fail"
     recommendations: list[str] = []
     if failed:
-        recommendations.append("Run `omni setup --cli-root <path> --runtime-root <path>` to persist install paths.")
+        recommendations.append("Run `caliper setup --cli-root <path> --runtime-root <path>` to persist install paths.")
     if any(item.get("id") == "runtime-root" and item.get("status") == "fail" for item in checks):
-        recommendations.append("Set `OMNIPARSER_ROOT` or pass `--runtime-root` to commands and re-run `omni doctor`.")
+        recommendations.append("Set `OMNIPARSER_ROOT` or pass `--runtime-root` to commands and re-run `caliper doctor`.")
     if any(item.get("id") == "uied-root" and item.get("status") == "fail" for item in checks):
-        recommendations.append("Set `UIED_ROOT` or pass `--uied-root` to commands and re-run `omni doctor`.")
+        recommendations.append("Set `UIED_ROOT` or pass `--uied-root` to commands and re-run `caliper doctor`.")
     if any(item.get("id") == "model-files" and item.get("status") == "fail" for item in checks):
-        recommendations.append("Set `OMNI_MODEL_DIR` to the correct weights folder or download OmniParser-v2.0 weights.")
+        recommendations.append("Set `CALIPER_MODEL_DIR` to the correct weights folder or download OmniParser-v2.0 weights.")
 
     runtime_for_meta = runtime_root if runtime_root is not None else cli_root
     processing_time_ms = int(round(_perf_ms() - start_ms))
@@ -2751,7 +2753,7 @@ def _cmd_crop(
     elif args.region_name:
         if project_config is None:
             raise OmniConfigError(
-                "--region-name requires a project config. Provide --config <path> or create .omni.json."
+                "--region-name requires a project config. Provide --config <path> or create .caliper.json."
             )
         if args.region_name not in project_config.regions:
             available = ", ".join(sorted(project_config.regions.keys())) or "<none>"
@@ -3384,24 +3386,24 @@ def _build_parser(
     runtime_root: Path,
 ) -> tuple[OmniArgumentParser, dict[str, argparse.ArgumentParser]]:
     description = (
-        "omni: Production CLI wrapper for OmniParser + UIED\n\n"
+        "caliper: Production CLI wrapper for OmniParser + UIED\n\n"
         "Subcommands:\n"
-        "  parse    Parse a screenshot into structured UI elements. Example: omni parse screen.png --quiet\n"
-        "  debug    Render a labeled debug image of detections. Example: omni debug screen.png -o /tmp/debug.png\n"
-        "  locate   Resolve a label/selector to element candidates. Example: omni locate screen.png --query \"save|side:right\"\n"
-        "  match    Match one logical UI element across two screenshots. Example: omni match before.png after.png --query \"save\"\n"
-        "  doctor   Diagnose environment/runtime/model health. Example: omni doctor --image screen.png\n"
-        "  measure  Measure pixel distances between points/elements. Example: omni measure screen.png --from element:0 --to element:1\n"
-        "  crop     Extract a screenshot region. Example: omni crop screen.png --region 0,0,200,200 -o crop.png\n"
-        "  diff     Compare two screenshots structurally. Example: omni diff before.png after.png --tolerance 5\n"
-        "  info     Show image metadata and UI summary. Example: omni info screen.png\n"
-        "  check    Run project assertions from .omni.json. Example: omni check screen.png --quiet\n"
-        "  overlay  Blend two screenshots with optional overlays. Example: omni overlay a.png b.png -o overlay.png\n"
-        "  help     Show top-level or subcommand help. Example: omni help parse"
+        "  parse    Parse a screenshot into structured UI elements. Example: caliper parse screen.png --quiet\n"
+        "  debug    Render a labeled debug image of detections. Example: caliper debug screen.png -o /tmp/debug.png\n"
+        "  locate   Resolve a label/selector to element candidates. Example: caliper locate screen.png --query \"save|side:right\"\n"
+        "  match    Match one logical UI element across two screenshots. Example: caliper match before.png after.png --query \"save\"\n"
+        "  doctor   Diagnose environment/runtime/model health. Example: caliper doctor --image screen.png\n"
+        "  measure  Measure pixel distances between points/elements. Example: caliper measure screen.png --from element:0 --to element:1\n"
+        "  crop     Extract a screenshot region. Example: caliper crop screen.png --region 0,0,200,200 -o crop.png\n"
+        "  diff     Compare two screenshots structurally. Example: caliper diff before.png after.png --tolerance 5\n"
+        "  info     Show image metadata and UI summary. Example: caliper info screen.png\n"
+        "  check    Run project assertions from .caliper.json. Example: caliper check screen.png --quiet\n"
+        "  overlay  Blend two screenshots with optional overlays. Example: caliper overlay a.png b.png -o overlay.png\n"
+        "  help     Show top-level or subcommand help. Example: caliper help parse"
     )
 
     parser = OmniArgumentParser(
-        prog="omni",
+        prog="caliper",
         description=description,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -3440,7 +3442,7 @@ def _build_parser(
         "--model-dir",
         default=None,
         help=(
-            "Override model directory. Default: OMNI_MODEL_DIR if set, "
+            "Override model directory. Default: CALIPER_MODEL_DIR if set, "
             f"otherwise {str(_default_model_dir(runtime_root))}."
         ),
     )
@@ -3449,7 +3451,7 @@ def _build_parser(
         default=None,
         help=(
             "Path to OmniParser runtime root (must contain util/utils.py). "
-            "Overrides OMNIPARSER_ROOT / OMNI_RUNTIME_ROOT."
+            "Overrides OMNIPARSER_ROOT / CALIPER_RUNTIME_ROOT."
         ),
     )
     parser.add_argument(
@@ -3471,7 +3473,7 @@ def _build_parser(
     )
     parser.add_argument(
         "--config",
-        help="Explicit path to project config file (.omni.json). Overrides auto-discovery.",
+        help="Explicit path to project config file (.caliper.json). Overrides auto-discovery.",
     )
     parser.add_argument(
         "--device",
@@ -3483,7 +3485,7 @@ def _build_parser(
         "--cache",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Enable/disable parse result caching in ~/.cache/omni (default: enabled).",
+        help="Enable/disable parse result caching in ~/.cache/caliper (default: enabled).",
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -3626,8 +3628,8 @@ def _build_parser(
     debug_help = (
         "Create a visual debug artifact with element boxes and text labels.\n\n"
         "Examples:\n"
-        "  omni debug screen.png -o /tmp/debug.png --quiet\n"
-        "  omni debug screen.png -o /tmp/debug.png --max-elements 120\n"
+        "  caliper debug screen.png -o /tmp/debug.png --quiet\n"
+        "  caliper debug screen.png -o /tmp/debug.png --max-elements 120\n"
     )
     debug_parser = subparsers.add_parser(
         "debug",
@@ -3659,9 +3661,9 @@ def _build_parser(
     locate_help = (
         "Resolve an element reference with optional proximity hints.\n\n"
         "Query examples:\n"
-        "  omni locate screen.png --query \"save\"\n"
-        "  omni locate screen.png --query \"label:save|side:right|near:1400,900\"\n"
-        "  omni locate screen.png --query \"*|near:300,200|within:250\"\n\n"
+        "  caliper locate screen.png --query \"save\"\n"
+        "  caliper locate screen.png --query \"label:save|side:right|near:1400,900\"\n"
+        "  caliper locate screen.png --query \"*|near:300,200|within:250\"\n\n"
         "Hints:\n"
         "  near:x,y     Prefer elements near this point\n"
         "  side:<side>  Prefer elements near left|right|top|bottom|center\n"
@@ -3711,9 +3713,9 @@ def _build_parser(
     match_help = (
         "Match one logical UI element across two screenshots using label + proximity + geometry scoring.\n\n"
         "Examples:\n"
-        "  omni match before.png after.png --query \"save\" --quiet\n"
-        "  omni match before.png after.png --query \"save|side:right|near:1400,900\" --anchor \"region:sidebar\"\n"
-        "  omni match before.png after.png --query \"label:*|near:300,200\" --top-k 10 --save-annotated /tmp/match.png\n"
+        "  caliper match before.png after.png --query \"save\" --quiet\n"
+        "  caliper match before.png after.png --query \"save|side:right|near:1400,900\" --anchor \"region:sidebar\"\n"
+        "  caliper match before.png after.png --query \"label:*|near:300,200\" --top-k 10 --save-annotated /tmp/match.png\n"
     )
     match_parser = subparsers.add_parser(
         "match",
@@ -3766,13 +3768,13 @@ def _build_parser(
     doctor_help = (
         "Run environment diagnostics for wrapper/runtime/dependencies/models.\n\n"
         "Examples:\n"
-        "  omni doctor --quiet\n"
-        "  omni doctor --runtime-root /path/to/OmniParser --quiet\n"
-        "  omni doctor --image screenshot.png --quiet\n"
+        "  caliper doctor --quiet\n"
+        "  caliper doctor --runtime-root /path/to/OmniParser --quiet\n"
+        "  caliper doctor --image screenshot.png --quiet\n"
     )
     doctor_parser = subparsers.add_parser(
         "doctor",
-        help="Diagnose Omni CLI runtime health.",
+        help="Diagnose CaliperUI CLI runtime health.",
         epilog=doctor_help,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -3790,10 +3792,10 @@ def _build_parser(
 
     measure_help = (
         "Examples:\n"
-        "  omni measure screen.png --from 120,300 --to 450,300\n"
-        "  omni measure screen.png --from element:3 --to element:7 --edge center\n"
-        "  omni measure screen.png --from id:e_abc123 --to id:e_def456 --axis x\n"
-        "  omni measure screen.png --from \"sidebar\" --to \"main content\" --axis x"
+        "  caliper measure screen.png --from 120,300 --to 450,300\n"
+        "  caliper measure screen.png --from element:3 --to element:7 --edge center\n"
+        "  caliper measure screen.png --from id:e_abc123 --to id:e_def456 --axis x\n"
+        "  caliper measure screen.png --from \"sidebar\" --to \"main content\" --axis x"
     )
     measure_parser = subparsers.add_parser(
         "measure",
@@ -3826,9 +3828,9 @@ def _build_parser(
 
     crop_help = (
         "Examples:\n"
-        "  omni crop screen.png --region 0,0,300,1080 -o left.png\n"
-        "  omni crop screen.png --element 5 --padding 20 -o button.png\n"
-        "  omni crop screen.png --region 0,0,200,200 > crop.png"
+        "  caliper crop screen.png --region 0,0,300,1080 -o left.png\n"
+        "  caliper crop screen.png --element 5 --padding 20 -o button.png\n"
+        "  caliper crop screen.png --region 0,0,200,200 > crop.png"
     )
     crop_parser = subparsers.add_parser(
         "crop",
@@ -3858,9 +3860,9 @@ def _build_parser(
 
     diff_help = (
         "Examples:\n"
-        "  omni diff before.png after.png\n"
-        "  omni diff before.png after.png --tolerance 8 --save-diff /tmp/diff.png\n"
-        "  omni diff before.png after.png --focus 0,0,800,500"
+        "  caliper diff before.png after.png\n"
+        "  caliper diff before.png after.png --tolerance 8 --save-diff /tmp/diff.png\n"
+        "  caliper diff before.png after.png --focus 0,0,800,500"
     )
     diff_parser = subparsers.add_parser(
         "diff",
@@ -4035,7 +4037,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         if "--quiet" not in raw_argv:
             print(f"Error: {exc}", file=sys.stderr)
-            print("Run `omni --help` for usage.", file=sys.stderr)
+            print("Run `caliper --help` for usage.", file=sys.stderr)
         _output_error_json(
             response_context=response_context,
             message=str(exc),
@@ -4058,7 +4060,7 @@ def main(argv: list[str] | None = None) -> int:
     logger = Console(ctx)
 
     if args.version:
-        print(f"omni {CLI_VERSION} (omniparser {omniparser_version})")
+        print(f"caliper {CLI_VERSION} (omniparser {omniparser_version})")
         return 0
 
     if args.command in (None, "help"):

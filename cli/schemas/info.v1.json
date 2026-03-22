@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://op-cli.local/schemas/info.v1.json",
-  "title": "omni info response",
+  "title": "caliper info response",
   "type": "object",
   "required": [
     "schema_version",

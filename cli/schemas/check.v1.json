@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://op-cli.local/schemas/check.v1.json",
-  "title": "omni check response",
+  "title": "caliper check response",
   "type": "object",
   "required": [
     "schema_version",

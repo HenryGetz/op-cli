@@ -24,7 +24,7 @@ resolve_script_path() {
 script_path="$(resolve_script_path "$0")"
 script_dir="$(CDPATH='' cd -- "$(dirname -- "$script_path")" && pwd -P)"
 
-install_env="${OMNI_INSTALL_ENV:-$HOME/.config/omni/install.env}"
+install_env="${CALIPER_INSTALL_ENV:-$HOME/.config/caliper/install.env}"
 if [ -f "$install_env" ]; then
   # shellcheck disable=SC1090
   . "$install_env"
@@ -32,14 +32,14 @@ fi
 
 setup_usage() {
   cat <<'EOF'
-Usage: omni setup [--cli-root <path>] [--runtime-root <path>] [--uied-root <path>] [--python <path>] [--show] [--clear]
+Usage: caliper setup [--cli-root <path>] [--runtime-root <path>] [--uied-root <path>] [--python <path>] [--show] [--clear]
 
-Writes persistent config to ~/.config/omni/install.env (or $OMNI_INSTALL_ENV).
+Writes persistent config to ~/.config/caliper/install.env (or $CALIPER_INSTALL_ENV).
 
 Examples:
-  omni setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
-  omni setup --show
-  omni setup --clear
+  caliper setup --cli-root /path/to/op-cli --runtime-root /path/to/OmniParser --uied-root /path/to/UIED
+  caliper setup --show
+  caliper setup --clear
 EOF
 }
 
@@ -50,10 +50,10 @@ shell_escape_single() {
 if [ "${1:-}" = "setup" ]; then
   shift
 
-  setup_cli_root="${OMNI_CLI_ROOT:-}"
-  setup_runtime_root="${OMNIPARSER_ROOT:-${OMNI_RUNTIME_ROOT:-}}"
+  setup_cli_root="${CALIPER_CLI_ROOT:-}"
+  setup_runtime_root="${OMNIPARSER_ROOT:-${CALIPER_RUNTIME_ROOT:-}}"
   setup_uied_root="${UIED_ROOT:-}"
-  setup_python="${OMNI_PYTHON:-}"
+  setup_python="${CALIPER_PYTHON:-}"
   setup_show=0
   setup_clear=0
 
@@ -61,22 +61,22 @@ if [ "${1:-}" = "setup" ]; then
     case "$1" in
       --cli-root)
         shift
-        [ "$#" -gt 0 ] || { echo "omni setup: --cli-root requires a value" >&2; exit 1; }
+        [ "$#" -gt 0 ] || { echo "caliper setup: --cli-root requires a value" >&2; exit 1; }
         setup_cli_root="$1"
         ;;
       --runtime-root)
         shift
-        [ "$#" -gt 0 ] || { echo "omni setup: --runtime-root requires a value" >&2; exit 1; }
+        [ "$#" -gt 0 ] || { echo "caliper setup: --runtime-root requires a value" >&2; exit 1; }
         setup_runtime_root="$1"
         ;;
       --python)
         shift
-        [ "$#" -gt 0 ] || { echo "omni setup: --python requires a value" >&2; exit 1; }
+        [ "$#" -gt 0 ] || { echo "caliper setup: --python requires a value" >&2; exit 1; }
         setup_python="$1"
         ;;
       --uied-root)
         shift
-        [ "$#" -gt 0 ] || { echo "omni setup: --uied-root requires a value" >&2; exit 1; }
+        [ "$#" -gt 0 ] || { echo "caliper setup: --uied-root requires a value" >&2; exit 1; }
         setup_uied_root="$1"
         ;;
       --show)
@@ -90,7 +90,7 @@ if [ "${1:-}" = "setup" ]; then
         exit 0
         ;;
       *)
-        echo "omni setup: unknown option '$1'" >&2
+        echo "caliper setup: unknown option '$1'" >&2
         setup_usage >&2
         exit 1
         ;;
@@ -117,27 +117,27 @@ if [ "${1:-}" = "setup" ]; then
   fi
 
   if [ -z "$setup_cli_root" ] || [ -z "$setup_runtime_root" ]; then
-    echo "omni setup requires --cli-root and --runtime-root (or pre-set env values)." >&2
+    echo "caliper setup requires --cli-root and --runtime-root (or pre-set env values)." >&2
     exit 1
   fi
 
   setup_cli_root="$(cd "$setup_cli_root" 2>/dev/null && pwd -P || true)"
   setup_runtime_root="$(cd "$setup_runtime_root" 2>/dev/null && pwd -P || true)"
 
-  if [ -z "$setup_cli_root" ] || [ ! -f "$setup_cli_root/cli/omni.py" ]; then
-    echo "omni setup: invalid --cli-root (missing cli/omni.py)." >&2
+  if [ -z "$setup_cli_root" ] || [ ! -f "$setup_cli_root/cli/caliper.py" ]; then
+    echo "caliper setup: invalid --cli-root (missing cli/caliper.py)." >&2
     exit 1
   fi
 
   if [ -z "$setup_runtime_root" ] || [ ! -f "$setup_runtime_root/util/utils.py" ]; then
-    echo "omni setup: invalid --runtime-root (missing util/utils.py)." >&2
+    echo "caliper setup: invalid --runtime-root (missing util/utils.py)." >&2
     exit 1
   fi
 
   if [ -n "$setup_python" ]; then
     setup_python="$(cd "$(dirname "$setup_python")" 2>/dev/null && pwd -P)/$(basename "$setup_python")"
     if [ ! -x "$setup_python" ]; then
-      echo "omni setup: invalid --python (not executable): $setup_python" >&2
+      echo "caliper setup: invalid --python (not executable): $setup_python" >&2
       exit 1
     fi
   fi
@@ -145,7 +145,7 @@ if [ "${1:-}" = "setup" ]; then
   if [ -n "$setup_uied_root" ]; then
     setup_uied_root="$(cd "$setup_uied_root" 2>/dev/null && pwd -P || true)"
     if [ -z "$setup_uied_root" ] || [ ! -f "$setup_uied_root/detect_compo/ip_region_proposal.py" ] || [ ! -f "$setup_uied_root/detect_merge/merge.py" ]; then
-      echo "omni setup: invalid --uied-root (missing detect_compo/ip_region_proposal.py or detect_merge/merge.py)." >&2
+      echo "caliper setup: invalid --uied-root (missing detect_compo/ip_region_proposal.py or detect_merge/merge.py)." >&2
       exit 1
     fi
   fi
@@ -157,7 +157,7 @@ if [ "${1:-}" = "setup" ]; then
   escaped_runtime="$(shell_escape_single "$setup_runtime_root")"
 
   {
-    printf "OMNI_CLI_ROOT='%s'\n" "$escaped_cli"
+    printf "CALIPER_CLI_ROOT='%s'\n" "$escaped_cli"
     printf "OMNIPARSER_ROOT='%s'\n" "$escaped_runtime"
     if [ -n "$setup_uied_root" ]; then
       escaped_uied="$(shell_escape_single "$setup_uied_root")"
@@ -165,18 +165,18 @@ if [ "${1:-}" = "setup" ]; then
     fi
     if [ -n "$setup_python" ]; then
       escaped_python="$(shell_escape_single "$setup_python")"
-      printf "OMNI_PYTHON='%s'\n" "$escaped_python"
+      printf "CALIPER_PYTHON='%s'\n" "$escaped_python"
     fi
   } >"$install_env"
 
-  echo "Saved persistent omni config to $install_env"
-  echo "OMNI_CLI_ROOT=$setup_cli_root"
+  echo "Saved persistent caliper config to $install_env"
+  echo "CALIPER_CLI_ROOT=$setup_cli_root"
   echo "OMNIPARSER_ROOT=$setup_runtime_root"
   if [ -n "$setup_uied_root" ]; then
     echo "UIED_ROOT=$setup_uied_root"
   fi
   if [ -n "$setup_python" ]; then
-    echo "OMNI_PYTHON=$setup_python"
+    echo "CALIPER_PYTHON=$setup_python"
   fi
   exit 0
 fi
@@ -184,7 +184,7 @@ fi
 find_cli_root() {
   for candidate in "$@"; do
     [ -n "$candidate" ] || continue
-    if [ -f "$candidate/cli/omni.py" ]; then
+    if [ -f "$candidate/cli/caliper.py" ]; then
       printf '%s\n' "$candidate"
       return 0
     fi
@@ -204,12 +204,12 @@ find_runtime_root() {
 }
 
 CLI_ROOT=""
-if [ -n "${OMNI_CLI_ROOT:-}" ]; then
-  CLI_ROOT="$(find_cli_root "$OMNI_CLI_ROOT" || true)"
+if [ -n "${CALIPER_CLI_ROOT:-}" ]; then
+  CLI_ROOT="$(find_cli_root "$CALIPER_CLI_ROOT" || true)"
 fi
 
-if [ -z "$CLI_ROOT" ] && [ -n "${OMNI_ROOT:-}" ]; then
-  CLI_ROOT="$(find_cli_root "$OMNI_ROOT" || true)"
+if [ -z "$CLI_ROOT" ] && [ -n "${CALIPER_ROOT:-}" ]; then
+  CLI_ROOT="$(find_cli_root "$CALIPER_ROOT" || true)"
 fi
 
 if [ -z "$CLI_ROOT" ]; then
@@ -217,8 +217,10 @@ if [ -z "$CLI_ROOT" ]; then
     "$script_dir/.." \
     "$script_dir/../OmniParser" \
     "$script_dir/../omni-parser/OmniParser" \
+    "$script_dir/../caliper-parser/OmniParser" \
     "$HOME/ai/op-cli" \
     "$HOME/ai/omni-parser/OmniParser" \
+    "$HOME/ai/caliper-parser/OmniParser" \
     "$HOME/OmniParser" \
     "$HOME/src/OmniParser" \
     "$HOME/projects/OmniParser" \
@@ -226,20 +228,20 @@ if [ -z "$CLI_ROOT" ]; then
 fi
 
 if [ -z "$CLI_ROOT" ]; then
-  echo "omni: unable to locate CLI root (expected <root>/cli/omni.py)" >&2
-  echo "Set OMNI_CLI_ROOT or OMNI_ROOT, or create $install_env with OMNI_CLI_ROOT=<path>." >&2
+  echo "caliper: unable to locate CLI root (expected <root>/cli/caliper.py)" >&2
+  echo "Set CALIPER_CLI_ROOT or CALIPER_ROOT, or create $install_env with CALIPER_CLI_ROOT=<path>." >&2
   exit 2
 fi
 
-CLI_ENTRY="$CLI_ROOT/cli/omni.py"
+CLI_ENTRY="$CLI_ROOT/cli/caliper.py"
 
 RUNTIME_ROOT=""
 if [ -n "${OMNIPARSER_ROOT:-}" ]; then
   RUNTIME_ROOT="$(find_runtime_root "$OMNIPARSER_ROOT" || true)"
 fi
 
-if [ -z "$RUNTIME_ROOT" ] && [ -n "${OMNI_RUNTIME_ROOT:-}" ]; then
-  RUNTIME_ROOT="$(find_runtime_root "$OMNI_RUNTIME_ROOT" || true)"
+if [ -z "$RUNTIME_ROOT" ] && [ -n "${CALIPER_RUNTIME_ROOT:-}" ]; then
+  RUNTIME_ROOT="$(find_runtime_root "$CALIPER_RUNTIME_ROOT" || true)"
 fi
 
 if [ -z "$RUNTIME_ROOT" ]; then
@@ -247,7 +249,9 @@ if [ -z "$RUNTIME_ROOT" ]; then
     "$CLI_ROOT" \
     "$CLI_ROOT/../OmniParser" \
     "$CLI_ROOT/../omni-parser/OmniParser" \
+    "$CLI_ROOT/../caliper-parser/OmniParser" \
     "$HOME/ai/omni-parser/OmniParser" \
+    "$HOME/ai/caliper-parser/OmniParser" \
     "$HOME/OmniParser" \
     "$HOME/src/OmniParser" \
     "$HOME/projects/OmniParser" \
@@ -255,13 +259,13 @@ if [ -z "$RUNTIME_ROOT" ]; then
 fi
 
 if [ -z "$RUNTIME_ROOT" ]; then
-  echo "omni: unable to locate OmniParser runtime root (expected <root>/util/utils.py)" >&2
-  echo "Set OMNIPARSER_ROOT (or OMNI_RUNTIME_ROOT) to your OmniParser install directory." >&2
+  echo "caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)" >&2
+  echo "Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory." >&2
   exit 2
 fi
 
-if [ -n "${OMNI_PYTHON:-}" ]; then
-  PYTHON_BIN="$OMNI_PYTHON"
+if [ -n "${CALIPER_PYTHON:-}" ]; then
+  PYTHON_BIN="$CALIPER_PYTHON"
 elif [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
   PYTHON_BIN="$VIRTUAL_ENV/bin/python"
 elif [ -n "${CONDA_PREFIX:-}" ] && [ -x "$CONDA_PREFIX/bin/python" ]; then
@@ -274,17 +278,19 @@ elif [ -x "$HOME/miniconda3/envs/omniparser_cpu/bin/python" ]; then
   PYTHON_BIN="$HOME/miniconda3/envs/omniparser_cpu/bin/python"
 elif [ -x "$HOME/miniconda3/envs/omni/bin/python" ]; then
   PYTHON_BIN="$HOME/miniconda3/envs/omni/bin/python"
+elif [ -x "$HOME/miniconda3/envs/caliper/bin/python" ]; then
+  PYTHON_BIN="$HOME/miniconda3/envs/caliper/bin/python"
 elif command -v python3 >/dev/null 2>&1; then
   PYTHON_BIN="$(command -v python3)"
 elif command -v python >/dev/null 2>&1; then
   PYTHON_BIN="$(command -v python)"
 else
-  echo "omni: unable to find a usable Python interpreter" >&2
+  echo "caliper: unable to find a usable Python interpreter" >&2
   exit 2
 fi
 
-if [ -z "${OMNI_MODEL_DIR:-}" ] && [ -d "$RUNTIME_ROOT/weights" ]; then
-  export OMNI_MODEL_DIR="$RUNTIME_ROOT/weights"
+if [ -z "${CALIPER_MODEL_DIR:-}" ] && [ -d "$RUNTIME_ROOT/weights" ]; then
+  export CALIPER_MODEL_DIR="$RUNTIME_ROOT/weights"
 fi
 
 export OMNIPARSER_ROOT="$RUNTIME_ROOT"
