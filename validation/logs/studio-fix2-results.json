@@ -1,0 +1,51 @@
+{
+  "3a": {
+    "dropZoneVisible": true,
+    "navLinksVisible": true,
+    "pass": true
+  },
+  "3b": {
+    "fileInputCount": 2,
+    "parseResponseStatus": 200,
+    "parsePayloadStatus": "success",
+    "parsePayloadError": null,
+    "overlayCount": 36,
+    "noErrorVisible": true,
+    "pass": true
+  },
+  "3c": {
+    "overlayClicked": true,
+    "inspectorInfoVisible": true,
+    "toleranceControlPresent": true,
+    "pass": true
+  },
+  "3d": {
+    "buttonFound": true,
+    "buttonEnabled": true,
+    "downloadTriggered": true,
+    "jsonVisible": false,
+    "pass": true
+  },
+  "3e": {
+    "fileInputs": 3,
+    "referenceVisible": true,
+    "iterationVisible": true,
+    "pass": true
+  },
+  "3f": {
+    "triageInputCount": 3,
+    "diffStatus": 200,
+    "checkStatus": 200,
+    "diffPayloadStatus": "success",
+    "checkPayloadStatus": "success",
+    "checkResult": "pass",
+    "triageOverlayCount": 111,
+    "assertionListVisible": true,
+    "pass": true
+  },
+  "3g": {
+    "hasContent": true,
+    "hasCrash": false,
+    "pass": true
+  }
+}

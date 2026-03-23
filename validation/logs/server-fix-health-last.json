@@ -1,0 +1,1 @@
+{"schema_version":"1.1","command":"doctor","status":"error","error":{"type":"CLIOutputError","message":"caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)\nSet OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.","exit_code":2},"warnings":[],"meta":{"command":"doctor"},"http_status":422}

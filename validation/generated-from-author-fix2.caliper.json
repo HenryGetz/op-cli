@@ -1,0 +1,1747 @@
+{
+  "assertions": [
+    {
+      "description": "e-0db25b4d6de100e7 width baseline",
+      "expected": 492,
+      "id": "region-e-0db25b4d6de100e7-width",
+      "property": "width",
+      "region": "e-0db25b4d6de100e7",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-0db25b4d6de100e7 height baseline",
+      "expected": 32,
+      "id": "region-e-0db25b4d6de100e7-height",
+      "property": "height",
+      "region": "e-0db25b4d6de100e7",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-b53e5c16e959539d width baseline",
+      "expected": 85,
+      "id": "region-e-b53e5c16e959539d-width",
+      "property": "width",
+      "region": "e-b53e5c16e959539d",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-b53e5c16e959539d height baseline",
+      "expected": 19,
+      "id": "region-e-b53e5c16e959539d-height",
+      "property": "height",
+      "region": "e-b53e5c16e959539d",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-0039ae2fb750af49 width baseline",
+      "expected": 72,
+      "id": "region-e-0039ae2fb750af49-width",
+      "property": "width",
+      "region": "e-0039ae2fb750af49",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-0039ae2fb750af49 height baseline",
+      "expected": 34,
+      "id": "region-e-0039ae2fb750af49-height",
+      "property": "height",
+      "region": "e-0039ae2fb750af49",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-c177e9032cba0d50 width baseline",
+      "expected": 113,
+      "id": "region-e-c177e9032cba0d50-width",
+      "property": "width",
+      "region": "e-c177e9032cba0d50",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-c177e9032cba0d50 height baseline",
+      "expected": 19,
+      "id": "region-e-c177e9032cba0d50-height",
+      "property": "height",
+      "region": "e-c177e9032cba0d50",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-da9d4afa215608c9 width baseline",
+      "expected": 58,
+      "id": "region-e-da9d4afa215608c9-width",
+      "property": "width",
+      "region": "e-da9d4afa215608c9",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-da9d4afa215608c9 height baseline",
+      "expected": 32,
+      "id": "region-e-da9d4afa215608c9-height",
+      "property": "height",
+      "region": "e-da9d4afa215608c9",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-87ef3ca480209a1d width baseline",
+      "expected": 81,
+      "id": "region-e-87ef3ca480209a1d-width",
+      "property": "width",
+      "region": "e-87ef3ca480209a1d",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-87ef3ca480209a1d height baseline",
+      "expected": 33,
+      "id": "region-e-87ef3ca480209a1d-height",
+      "property": "height",
+      "region": "e-87ef3ca480209a1d",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-dbc038a7a1bc5a5c width baseline",
+      "expected": 40,
+      "id": "region-e-dbc038a7a1bc5a5c-width",
+      "property": "width",
+      "region": "e-dbc038a7a1bc5a5c",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-dbc038a7a1bc5a5c height baseline",
+      "expected": 18,
+      "id": "region-e-dbc038a7a1bc5a5c-height",
+      "property": "height",
+      "region": "e-dbc038a7a1bc5a5c",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-0166f2840d634fc2 width baseline",
+      "expected": 24,
+      "id": "region-e-0166f2840d634fc2-width",
+      "property": "width",
+      "region": "e-0166f2840d634fc2",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-0166f2840d634fc2 height baseline",
+      "expected": 17,
+      "id": "region-e-0166f2840d634fc2-height",
+      "property": "height",
+      "region": "e-0166f2840d634fc2",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-cb18bf1ea08650d2 width baseline",
+      "expected": 98,
+      "id": "region-e-cb18bf1ea08650d2-width",
+      "property": "width",
+      "region": "e-cb18bf1ea08650d2",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-cb18bf1ea08650d2 height baseline",
+      "expected": 23,
+      "id": "region-e-cb18bf1ea08650d2-height",
+      "property": "height",
+      "region": "e-cb18bf1ea08650d2",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-5839426cf18dd47f width baseline",
+      "expected": 28,
+      "id": "region-e-5839426cf18dd47f-width",
+      "property": "width",
+      "region": "e-5839426cf18dd47f",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-5839426cf18dd47f height baseline",
+      "expected": 16,
+      "id": "region-e-5839426cf18dd47f-height",
+      "property": "height",
+      "region": "e-5839426cf18dd47f",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-8c2e6d1f7c9f47b7 width baseline",
+      "expected": 65,
+      "id": "region-e-8c2e6d1f7c9f47b7-width",
+      "property": "width",
+      "region": "e-8c2e6d1f7c9f47b7",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-8c2e6d1f7c9f47b7 height baseline",
+      "expected": 42,
+      "id": "region-e-8c2e6d1f7c9f47b7-height",
+      "property": "height",
+      "region": "e-8c2e6d1f7c9f47b7",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-d66e3a0ddb16f50b width baseline",
+      "expected": 76,
+      "id": "region-e-d66e3a0ddb16f50b-width",
+      "property": "width",
+      "region": "e-d66e3a0ddb16f50b",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-d66e3a0ddb16f50b height baseline",
+      "expected": 46,
+      "id": "region-e-d66e3a0ddb16f50b-height",
+      "property": "height",
+      "region": "e-d66e3a0ddb16f50b",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-ad2b980831d94640 width baseline",
+      "expected": 23,
+      "id": "region-e-ad2b980831d94640-width",
+      "property": "width",
+      "region": "e-ad2b980831d94640",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-ad2b980831d94640 height baseline",
+      "expected": 16,
+      "id": "region-e-ad2b980831d94640-height",
+      "property": "height",
+      "region": "e-ad2b980831d94640",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-32dca882d8bfa19b width baseline",
+      "expected": 161,
+      "id": "region-e-32dca882d8bfa19b-width",
+      "property": "width",
+      "region": "e-32dca882d8bfa19b",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-32dca882d8bfa19b height baseline",
+      "expected": 20,
+      "id": "region-e-32dca882d8bfa19b-height",
+      "property": "height",
+      "region": "e-32dca882d8bfa19b",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-565936294f90ee7f width baseline",
+      "expected": 154,
+      "id": "region-e-565936294f90ee7f-width",
+      "property": "width",
+      "region": "e-565936294f90ee7f",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-565936294f90ee7f height baseline",
+      "expected": 17,
+      "id": "region-e-565936294f90ee7f-height",
+      "property": "height",
+      "region": "e-565936294f90ee7f",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-74dbe4b5776e299e width baseline",
+      "expected": 84,
+      "id": "region-e-74dbe4b5776e299e-width",
+      "property": "width",
+      "region": "e-74dbe4b5776e299e",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-74dbe4b5776e299e height baseline",
+      "expected": 33,
+      "id": "region-e-74dbe4b5776e299e-height",
+      "property": "height",
+      "region": "e-74dbe4b5776e299e",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-f8c89a9ec221de83 width baseline",
+      "expected": 127,
+      "id": "region-e-f8c89a9ec221de83-width",
+      "property": "width",
+      "region": "e-f8c89a9ec221de83",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-f8c89a9ec221de83 height baseline",
+      "expected": 17,
+      "id": "region-e-f8c89a9ec221de83-height",
+      "property": "height",
+      "region": "e-f8c89a9ec221de83",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-62f470aa9be56a33 width baseline",
+      "expected": 229,
+      "id": "region-e-62f470aa9be56a33-width",
+      "property": "width",
+      "region": "e-62f470aa9be56a33",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-62f470aa9be56a33 height baseline",
+      "expected": 57,
+      "id": "region-e-62f470aa9be56a33-height",
+      "property": "height",
+      "region": "e-62f470aa9be56a33",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-a246b38fb3dc5c64 width baseline",
+      "expected": 111,
+      "id": "region-e-a246b38fb3dc5c64-width",
+      "property": "width",
+      "region": "e-a246b38fb3dc5c64",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-a246b38fb3dc5c64 height baseline",
+      "expected": 49,
+      "id": "region-e-a246b38fb3dc5c64-height",
+      "property": "height",
+      "region": "e-a246b38fb3dc5c64",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-3ea1b9bcf88fce43 width baseline",
+      "expected": 108,
+      "id": "region-e-3ea1b9bcf88fce43-width",
+      "property": "width",
+      "region": "e-3ea1b9bcf88fce43",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-3ea1b9bcf88fce43 height baseline",
+      "expected": 48,
+      "id": "region-e-3ea1b9bcf88fce43-height",
+      "property": "height",
+      "region": "e-3ea1b9bcf88fce43",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-564330b59cbd96a1 width baseline",
+      "expected": 134,
+      "id": "region-e-564330b59cbd96a1-width",
+      "property": "width",
+      "region": "e-564330b59cbd96a1",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-564330b59cbd96a1 height baseline",
+      "expected": 30,
+      "id": "region-e-564330b59cbd96a1-height",
+      "property": "height",
+      "region": "e-564330b59cbd96a1",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-f66b0fdb308ffae7 width baseline",
+      "expected": 415,
+      "id": "region-e-f66b0fdb308ffae7-width",
+      "property": "width",
+      "region": "e-f66b0fdb308ffae7",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-f66b0fdb308ffae7 height baseline",
+      "expected": 299,
+      "id": "region-e-f66b0fdb308ffae7-height",
+      "property": "height",
+      "region": "e-f66b0fdb308ffae7",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-3260bba0f74f72e0 width baseline",
+      "expected": 132,
+      "id": "region-e-3260bba0f74f72e0-width",
+      "property": "width",
+      "region": "e-3260bba0f74f72e0",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-3260bba0f74f72e0 height baseline",
+      "expected": 28,
+      "id": "region-e-3260bba0f74f72e0-height",
+      "property": "height",
+      "region": "e-3260bba0f74f72e0",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-4e94b174cdcf56bc width baseline",
+      "expected": 107,
+      "id": "region-e-4e94b174cdcf56bc-width",
+      "property": "width",
+      "region": "e-4e94b174cdcf56bc",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-4e94b174cdcf56bc height baseline",
+      "expected": 33,
+      "id": "region-e-4e94b174cdcf56bc-height",
+      "property": "height",
+      "region": "e-4e94b174cdcf56bc",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-1303f88df72a4bb4 width baseline",
+      "expected": 415,
+      "id": "region-e-1303f88df72a4bb4-width",
+      "property": "width",
+      "region": "e-1303f88df72a4bb4",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-1303f88df72a4bb4 height baseline",
+      "expected": 293,
+      "id": "region-e-1303f88df72a4bb4-height",
+      "property": "height",
+      "region": "e-1303f88df72a4bb4",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-7c800068e549dcf7 width baseline",
+      "expected": 129,
+      "id": "region-e-7c800068e549dcf7-width",
+      "property": "width",
+      "region": "e-7c800068e549dcf7",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-7c800068e549dcf7 height baseline",
+      "expected": 68,
+      "id": "region-e-7c800068e549dcf7-height",
+      "property": "height",
+      "region": "e-7c800068e549dcf7",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-2e8965024ab7c9aa width baseline",
+      "expected": 49,
+      "id": "region-e-2e8965024ab7c9aa-width",
+      "property": "width",
+      "region": "e-2e8965024ab7c9aa",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-2e8965024ab7c9aa height baseline",
+      "expected": 64,
+      "id": "region-e-2e8965024ab7c9aa-height",
+      "property": "height",
+      "region": "e-2e8965024ab7c9aa",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-6201e44f63c195d4 width baseline",
+      "expected": 53,
+      "id": "region-e-6201e44f63c195d4-width",
+      "property": "width",
+      "region": "e-6201e44f63c195d4",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-6201e44f63c195d4 height baseline",
+      "expected": 33,
+      "id": "region-e-6201e44f63c195d4-height",
+      "property": "height",
+      "region": "e-6201e44f63c195d4",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-7042e46bc5a8b3ed width baseline",
+      "expected": 104,
+      "id": "region-e-7042e46bc5a8b3ed-width",
+      "property": "width",
+      "region": "e-7042e46bc5a8b3ed",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-7042e46bc5a8b3ed height baseline",
+      "expected": 28,
+      "id": "region-e-7042e46bc5a8b3ed-height",
+      "property": "height",
+      "region": "e-7042e46bc5a8b3ed",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-6dc10bd9a0aa0d83 width baseline",
+      "expected": 59,
+      "id": "region-e-6dc10bd9a0aa0d83-width",
+      "property": "width",
+      "region": "e-6dc10bd9a0aa0d83",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-6dc10bd9a0aa0d83 height baseline",
+      "expected": 29,
+      "id": "region-e-6dc10bd9a0aa0d83-height",
+      "property": "height",
+      "region": "e-6dc10bd9a0aa0d83",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-67dd5154a60b6035 width baseline",
+      "expected": 46,
+      "id": "region-e-67dd5154a60b6035-width",
+      "property": "width",
+      "region": "e-67dd5154a60b6035",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-67dd5154a60b6035 height baseline",
+      "expected": 46,
+      "id": "region-e-67dd5154a60b6035-height",
+      "property": "height",
+      "region": "e-67dd5154a60b6035",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-f8ab90f3c00edac6 width baseline",
+      "expected": 46,
+      "id": "region-e-f8ab90f3c00edac6-width",
+      "property": "width",
+      "region": "e-f8ab90f3c00edac6",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-f8ab90f3c00edac6 height baseline",
+      "expected": 53,
+      "id": "region-e-f8ab90f3c00edac6-height",
+      "property": "height",
+      "region": "e-f8ab90f3c00edac6",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-0b319518e6b50f15 width baseline",
+      "expected": 28,
+      "id": "region-e-0b319518e6b50f15-width",
+      "property": "width",
+      "region": "e-0b319518e6b50f15",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-0b319518e6b50f15 height baseline",
+      "expected": 37,
+      "id": "region-e-0b319518e6b50f15-height",
+      "property": "height",
+      "region": "e-0b319518e6b50f15",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-5b02ce6037edb7b9 width baseline",
+      "expected": 34,
+      "id": "region-e-5b02ce6037edb7b9-width",
+      "property": "width",
+      "region": "e-5b02ce6037edb7b9",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-5b02ce6037edb7b9 height baseline",
+      "expected": 38,
+      "id": "region-e-5b02ce6037edb7b9-height",
+      "property": "height",
+      "region": "e-5b02ce6037edb7b9",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-45257347fddc5d13 width baseline",
+      "expected": 32,
+      "id": "region-e-45257347fddc5d13-width",
+      "property": "width",
+      "region": "e-45257347fddc5d13",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-45257347fddc5d13 height baseline",
+      "expected": 32,
+      "id": "region-e-45257347fddc5d13-height",
+      "property": "height",
+      "region": "e-45257347fddc5d13",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-91ebb9bf12723ab4 width baseline",
+      "expected": 55,
+      "id": "region-e-91ebb9bf12723ab4-width",
+      "property": "width",
+      "region": "e-91ebb9bf12723ab4",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "description": "e-91ebb9bf12723ab4 height baseline",
+      "expected": 66,
+      "id": "region-e-91ebb9bf12723ab4-height",
+      "property": "height",
+      "region": "e-91ebb9bf12723ab4",
+      "tolerance": 5,
+      "type": "region_dimension"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-da9d4afa215608c9 to e-87ef3ca480209a1d",
+      "expected": 57,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-da9d4afa215608c9"
+      },
+      "id": "gap-x-e-da9d4afa215608c9-to-e-87ef3ca480209a1d",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-87ef3ca480209a1d"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-dbc038a7a1bc5a5c to e-0166f2840d634fc2",
+      "expected": 77,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-dbc038a7a1bc5a5c"
+      },
+      "id": "gap-x-e-dbc038a7a1bc5a5c-to-e-0166f2840d634fc2",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-0166f2840d634fc2"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-cb18bf1ea08650d2 to e-5839426cf18dd47f",
+      "expected": 33,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-cb18bf1ea08650d2"
+      },
+      "id": "gap-x-e-cb18bf1ea08650d2-to-e-5839426cf18dd47f",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-5839426cf18dd47f"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-5839426cf18dd47f to e-6dc10bd9a0aa0d83",
+      "expected": 10,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-5839426cf18dd47f"
+      },
+      "id": "gap-x-e-5839426cf18dd47f-to-e-6dc10bd9a0aa0d83",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-6dc10bd9a0aa0d83"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-8c2e6d1f7c9f47b7 to e-ad2b980831d94640",
+      "expected": 3,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-8c2e6d1f7c9f47b7"
+      },
+      "id": "gap-x-e-8c2e6d1f7c9f47b7-to-e-ad2b980831d94640",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-ad2b980831d94640"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-d66e3a0ddb16f50b to e-7042e46bc5a8b3ed",
+      "expected": 26,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-d66e3a0ddb16f50b"
+      },
+      "id": "gap-x-e-d66e3a0ddb16f50b-to-e-7042e46bc5a8b3ed",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-7042e46bc5a8b3ed"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-ad2b980831d94640 to e-32dca882d8bfa19b",
+      "expected": 12,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-ad2b980831d94640"
+      },
+      "id": "gap-x-e-ad2b980831d94640-to-e-32dca882d8bfa19b",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-32dca882d8bfa19b"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-32dca882d8bfa19b to e-d66e3a0ddb16f50b",
+      "expected": 292,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-32dca882d8bfa19b"
+      },
+      "id": "gap-x-e-32dca882d8bfa19b-to-e-d66e3a0ddb16f50b",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-d66e3a0ddb16f50b"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-74dbe4b5776e299e to e-3ea1b9bcf88fce43",
+      "expected": 497,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-74dbe4b5776e299e"
+      },
+      "id": "gap-x-e-74dbe4b5776e299e-to-e-3ea1b9bcf88fce43",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-3ea1b9bcf88fce43"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-3ea1b9bcf88fce43 to e-a246b38fb3dc5c64",
+      "expected": 8,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-3ea1b9bcf88fce43"
+      },
+      "id": "gap-x-e-3ea1b9bcf88fce43-to-e-a246b38fb3dc5c64",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-a246b38fb3dc5c64"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-564330b59cbd96a1 to e-3ea1b9bcf88fce43",
+      "expected": 793,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-564330b59cbd96a1"
+      },
+      "id": "gap-x-e-564330b59cbd96a1-to-e-3ea1b9bcf88fce43",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-3ea1b9bcf88fce43"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-f66b0fdb308ffae7 to e-dbc038a7a1bc5a5c",
+      "expected": 39,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-f66b0fdb308ffae7"
+      },
+      "id": "gap-x-e-f66b0fdb308ffae7-to-e-dbc038a7a1bc5a5c",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-dbc038a7a1bc5a5c"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-4e94b174cdcf56bc to e-3260bba0f74f72e0",
+      "expected": 627,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-4e94b174cdcf56bc"
+      },
+      "id": "gap-x-e-4e94b174cdcf56bc-to-e-3260bba0f74f72e0",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-3260bba0f74f72e0"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-1303f88df72a4bb4 to e-f66b0fdb308ffae7",
+      "expected": 40,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-1303f88df72a4bb4"
+      },
+      "id": "gap-x-e-1303f88df72a4bb4-to-e-f66b0fdb308ffae7",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-f66b0fdb308ffae7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-7c800068e549dcf7 to e-2e8965024ab7c9aa",
+      "expected": 26,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-7c800068e549dcf7"
+      },
+      "id": "gap-x-e-7c800068e549dcf7-to-e-2e8965024ab7c9aa",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-2e8965024ab7c9aa"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-2e8965024ab7c9aa to e-6201e44f63c195d4",
+      "expected": 30,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-2e8965024ab7c9aa"
+      },
+      "id": "gap-x-e-2e8965024ab7c9aa-to-e-6201e44f63c195d4",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-6201e44f63c195d4"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-6201e44f63c195d4 to e-4e94b174cdcf56bc",
+      "expected": 28,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-6201e44f63c195d4"
+      },
+      "id": "gap-x-e-6201e44f63c195d4-to-e-4e94b174cdcf56bc",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-4e94b174cdcf56bc"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-7042e46bc5a8b3ed to e-565936294f90ee7f",
+      "expected": 165,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-7042e46bc5a8b3ed"
+      },
+      "id": "gap-x-e-7042e46bc5a8b3ed-to-e-565936294f90ee7f",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-565936294f90ee7f"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-67dd5154a60b6035 to e-7c800068e549dcf7",
+      "expected": 15,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-67dd5154a60b6035"
+      },
+      "id": "gap-x-e-67dd5154a60b6035-to-e-7c800068e549dcf7",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-7c800068e549dcf7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-0b319518e6b50f15 to e-1303f88df72a4bb4",
+      "expected": 64,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-0b319518e6b50f15"
+      },
+      "id": "gap-x-e-0b319518e6b50f15-to-e-1303f88df72a4bb4",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-1303f88df72a4bb4"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-5b02ce6037edb7b9 to e-1303f88df72a4bb4",
+      "expected": 60,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-5b02ce6037edb7b9"
+      },
+      "id": "gap-x-e-5b02ce6037edb7b9-to-e-1303f88df72a4bb4",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-1303f88df72a4bb4"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-45257347fddc5d13 to e-0db25b4d6de100e7",
+      "expected": 48,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-45257347fddc5d13"
+      },
+      "id": "gap-x-e-45257347fddc5d13-to-e-0db25b4d6de100e7",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-0db25b4d6de100e7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "x",
+      "description": "horizontal gap from e-91ebb9bf12723ab4 to e-1303f88df72a4bb4",
+      "expected": 51,
+      "from": {
+        "edge": "right",
+        "ref": "region:e-91ebb9bf12723ab4"
+      },
+      "id": "gap-x-e-91ebb9bf12723ab4-to-e-1303f88df72a4bb4",
+      "to": {
+        "edge": "left",
+        "ref": "region:e-1303f88df72a4bb4"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-0db25b4d6de100e7 to e-f66b0fdb308ffae7",
+      "expected": 30,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-0db25b4d6de100e7"
+      },
+      "id": "gap-y-e-0db25b4d6de100e7-to-e-f66b0fdb308ffae7",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-f66b0fdb308ffae7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-b53e5c16e959539d to e-0039ae2fb750af49",
+      "expected": 8,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-b53e5c16e959539d"
+      },
+      "id": "gap-y-e-b53e5c16e959539d-to-e-0039ae2fb750af49",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-0039ae2fb750af49"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-0039ae2fb750af49 to e-c177e9032cba0d50",
+      "expected": 27,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-0039ae2fb750af49"
+      },
+      "id": "gap-y-e-0039ae2fb750af49-to-e-c177e9032cba0d50",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-c177e9032cba0d50"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-c177e9032cba0d50 to e-da9d4afa215608c9",
+      "expected": 9,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-c177e9032cba0d50"
+      },
+      "id": "gap-y-e-c177e9032cba0d50-to-e-da9d4afa215608c9",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-da9d4afa215608c9"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-da9d4afa215608c9 to e-dbc038a7a1bc5a5c",
+      "expected": 22,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-da9d4afa215608c9"
+      },
+      "id": "gap-y-e-da9d4afa215608c9-to-e-dbc038a7a1bc5a5c",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-dbc038a7a1bc5a5c"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-87ef3ca480209a1d to e-0166f2840d634fc2",
+      "expected": 23,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-87ef3ca480209a1d"
+      },
+      "id": "gap-y-e-87ef3ca480209a1d-to-e-0166f2840d634fc2",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-0166f2840d634fc2"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-dbc038a7a1bc5a5c to e-cb18bf1ea08650d2",
+      "expected": 26,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-dbc038a7a1bc5a5c"
+      },
+      "id": "gap-y-e-dbc038a7a1bc5a5c-to-e-cb18bf1ea08650d2",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-cb18bf1ea08650d2"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-0166f2840d634fc2 to e-5839426cf18dd47f",
+      "expected": 29,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-0166f2840d634fc2"
+      },
+      "id": "gap-y-e-0166f2840d634fc2-to-e-5839426cf18dd47f",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-5839426cf18dd47f"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-cb18bf1ea08650d2 to e-565936294f90ee7f",
+      "expected": 107,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-cb18bf1ea08650d2"
+      },
+      "id": "gap-y-e-cb18bf1ea08650d2-to-e-565936294f90ee7f",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-565936294f90ee7f"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-5839426cf18dd47f to e-565936294f90ee7f",
+      "expected": 111,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-5839426cf18dd47f"
+      },
+      "id": "gap-y-e-5839426cf18dd47f-to-e-565936294f90ee7f",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-565936294f90ee7f"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-8c2e6d1f7c9f47b7 to e-564330b59cbd96a1",
+      "expected": 124,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-8c2e6d1f7c9f47b7"
+      },
+      "id": "gap-y-e-8c2e6d1f7c9f47b7-to-e-564330b59cbd96a1",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-564330b59cbd96a1"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-ad2b980831d94640 to e-564330b59cbd96a1",
+      "expected": 126,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-ad2b980831d94640"
+      },
+      "id": "gap-y-e-ad2b980831d94640-to-e-564330b59cbd96a1",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-564330b59cbd96a1"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-32dca882d8bfa19b to e-564330b59cbd96a1",
+      "expected": 124,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-32dca882d8bfa19b"
+      },
+      "id": "gap-y-e-32dca882d8bfa19b-to-e-564330b59cbd96a1",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-564330b59cbd96a1"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-565936294f90ee7f to e-62f470aa9be56a33",
+      "expected": 17,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-565936294f90ee7f"
+      },
+      "id": "gap-y-e-565936294f90ee7f-to-e-62f470aa9be56a33",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-62f470aa9be56a33"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-f8c89a9ec221de83 to e-a246b38fb3dc5c64",
+      "expected": 12,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-f8c89a9ec221de83"
+      },
+      "id": "gap-y-e-f8c89a9ec221de83-to-e-a246b38fb3dc5c64",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-a246b38fb3dc5c64"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-62f470aa9be56a33 to e-f8c89a9ec221de83",
+      "expected": 13,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-62f470aa9be56a33"
+      },
+      "id": "gap-y-e-62f470aa9be56a33-to-e-f8c89a9ec221de83",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-f8c89a9ec221de83"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-f66b0fdb308ffae7 to e-d66e3a0ddb16f50b",
+      "expected": 30,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-f66b0fdb308ffae7"
+      },
+      "id": "gap-y-e-f66b0fdb308ffae7-to-e-d66e3a0ddb16f50b",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-d66e3a0ddb16f50b"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-3260bba0f74f72e0 to e-c177e9032cba0d50",
+      "expected": 201,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-3260bba0f74f72e0"
+      },
+      "id": "gap-y-e-3260bba0f74f72e0-to-e-c177e9032cba0d50",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-c177e9032cba0d50"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-4e94b174cdcf56bc to e-0db25b4d6de100e7",
+      "expected": 47,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-4e94b174cdcf56bc"
+      },
+      "id": "gap-y-e-4e94b174cdcf56bc-to-e-0db25b4d6de100e7",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-0db25b4d6de100e7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-1303f88df72a4bb4 to e-8c2e6d1f7c9f47b7",
+      "expected": 31,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-1303f88df72a4bb4"
+      },
+      "id": "gap-y-e-1303f88df72a4bb4-to-e-8c2e6d1f7c9f47b7",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-8c2e6d1f7c9f47b7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-7c800068e549dcf7 to e-0db25b4d6de100e7",
+      "expected": 28,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-7c800068e549dcf7"
+      },
+      "id": "gap-y-e-7c800068e549dcf7-to-e-0db25b4d6de100e7",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-0db25b4d6de100e7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-2e8965024ab7c9aa to e-0db25b4d6de100e7",
+      "expected": 31,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-2e8965024ab7c9aa"
+      },
+      "id": "gap-y-e-2e8965024ab7c9aa-to-e-0db25b4d6de100e7",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-0db25b4d6de100e7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-6201e44f63c195d4 to e-0db25b4d6de100e7",
+      "expected": 48,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-6201e44f63c195d4"
+      },
+      "id": "gap-y-e-6201e44f63c195d4-to-e-0db25b4d6de100e7",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-0db25b4d6de100e7"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-6dc10bd9a0aa0d83 to e-62f470aa9be56a33",
+      "expected": 139,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-6dc10bd9a0aa0d83"
+      },
+      "id": "gap-y-e-6dc10bd9a0aa0d83-to-e-62f470aa9be56a33",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-62f470aa9be56a33"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-67dd5154a60b6035 to e-45257347fddc5d13",
+      "expected": 44,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-67dd5154a60b6035"
+      },
+      "id": "gap-y-e-67dd5154a60b6035-to-e-45257347fddc5d13",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-45257347fddc5d13"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-0b319518e6b50f15 to e-f8ab90f3c00edac6",
+      "expected": 361,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-0b319518e6b50f15"
+      },
+      "id": "gap-y-e-0b319518e6b50f15-to-e-f8ab90f3c00edac6",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-f8ab90f3c00edac6"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-5b02ce6037edb7b9 to e-0b319518e6b50f15",
+      "expected": 39,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-5b02ce6037edb7b9"
+      },
+      "id": "gap-y-e-5b02ce6037edb7b9-to-e-0b319518e6b50f15",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-0b319518e6b50f15"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-45257347fddc5d13 to e-91ebb9bf12723ab4",
+      "expected": 29,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-45257347fddc5d13"
+      },
+      "id": "gap-y-e-45257347fddc5d13-to-e-91ebb9bf12723ab4",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-91ebb9bf12723ab4"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    },
+    {
+      "axis": "y",
+      "description": "vertical gap from e-91ebb9bf12723ab4 to e-5b02ce6037edb7b9",
+      "expected": 22,
+      "from": {
+        "edge": "bottom",
+        "ref": "region:e-91ebb9bf12723ab4"
+      },
+      "id": "gap-y-e-91ebb9bf12723ab4-to-e-5b02ce6037edb7b9",
+      "to": {
+        "edge": "top",
+        "ref": "region:e-5b02ce6037edb7b9"
+      },
+      "tolerance": 5,
+      "type": "measurement"
+    }
+  ],
+  "project_name": "caliper-project",
+  "reference_image": "/tmp/caliper-server/baseline-4c68cc14fb3943b4943ce2d220a9db0c/acist-1280x800-playwright.png",
+  "regions": {
+    "e-0039ae2fb750af49": {
+      "description": "0.5s",
+      "h": 34,
+      "w": 72,
+      "x": 1028,
+      "y": 186
+    },
+    "e-0166f2840d634fc2": {
+      "description": "mL",
+      "h": 17,
+      "w": 24,
+      "x": 1144,
+      "y": 330
+    },
+    "e-0b319518e6b50f15": {
+      "description": "A horizontal bar or horizontal line.",
+      "h": 37,
+      "w": 28,
+      "x": 26,
+      "y": 327
+    },
+    "e-0db25b4d6de100e7": {
+      "description": "Ready: Large Injection x Disarm",
+      "h": 32,
+      "w": 492,
+      "x": 105,
+      "y": 96
+    },
+    "e-1303f88df72a4bb4": {
+      "description": "Flow Rate (mL/s) 11.0",
+      "h": 293,
+      "w": 415,
+      "x": 118,
+      "y": 164
+    },
+    "e-2e8965024ab7c9aa": {
+      "description": "LCA",
+      "h": 64,
+      "w": 49,
+      "x": 232,
+      "y": 1
+    },
+    "e-3260bba0f74f72e0": {
+      "description": "ACIST Pro'",
+      "h": 28,
+      "w": 132,
+      "x": 1126,
+      "y": 18
+    },
+    "e-32dca882d8bfa19b": {
+      "description": "Contrast to Patient.",
+      "h": 20,
+      "w": 161,
+      "x": 207,
+      "y": 510
+    },
+    "e-3ea1b9bcf88fce43": {
+      "description": "PURGE",
+      "h": 48,
+      "w": 108,
+      "x": 1030,
+      "y": 636
+    },
+    "e-45257347fddc5d13": {
+      "description": "A simple icon or logo.",
+      "h": 32,
+      "w": 32,
+      "x": 25,
+      "y": 101
+    },
+    "e-4e94b174cdcf56bc": {
+      "description": "LV/Aorta",
+      "h": 33,
+      "w": 107,
+      "x": 392,
+      "y": 16
+    },
+    "e-564330b59cbd96a1": {
+      "description": "Dr. Johnson",
+      "h": 30,
+      "w": 134,
+      "x": 103,
+      "y": 654
+    },
+    "e-565936294f90ee7f": {
+      "description": "Contrast Available.",
+      "h": 17,
+      "w": 154,
+      "x": 1031,
+      "y": 503
+    },
+    "e-5839426cf18dd47f": {
+      "description": "OFF",
+      "h": 16,
+      "w": 28,
+      "x": 1159,
+      "y": 376
+    },
+    "e-5b02ce6037edb7b9": {
+      "description": "A simple running or running application.",
+      "h": 38,
+      "w": 34,
+      "x": 24,
+      "y": 250
+    },
+    "e-6201e44f63c195d4": {
+      "description": "RCA",
+      "h": 33,
+      "w": 53,
+      "x": 311,
+      "y": 15
+    },
+    "e-62f470aa9be56a33": {
+      "description": "95 mL",
+      "h": 57,
+      "w": 229,
+      "x": 1028,
+      "y": 537
+    },
+    "e-67dd5154a60b6035": {
+      "description": "a horizontal bar or horizontal line.",
+      "h": 46,
+      "w": 46,
+      "x": 16,
+      "y": 11
+    },
+    "e-6dc10bd9a0aa0d83": {
+      "description": "A single oval shape.",
+      "h": 29,
+      "w": 59,
+      "x": 1197,
+      "y": 369
+    },
+    "e-7042e46bc5a8b3ed": {
+      "description": "Target Limit",
+      "h": 28,
+      "w": 104,
+      "x": 762,
+      "y": 506
+    },
+    "e-74dbe4b5776e299e": {
+      "description": "51%",
+      "h": 33,
+      "w": 84,
+      "x": 449,
+      "y": 608
+    },
+    "e-7c800068e549dcf7": {
+      "description": "Cardiac v",
+      "h": 68,
+      "w": 129,
+      "x": 77,
+      "y": 0
+    },
+    "e-87ef3ca480209a1d": {
+      "description": "18.5",
+      "h": 33,
+      "w": 81,
+      "x": 1144,
+      "y": 274
+    },
+    "e-8c2e6d1f7c9f47b7": {
+      "description": "43",
+      "h": 42,
+      "w": 65,
+      "x": 104,
+      "y": 488
+    },
+    "e-91ebb9bf12723ab4": {
+      "description": "A simple design or logo.",
+      "h": 66,
+      "w": 55,
+      "x": 12,
+      "y": 162
+    },
+    "e-a246b38fb3dc5c64": {
+      "description": "REFILL",
+      "h": 49,
+      "w": 111,
+      "x": 1146,
+      "y": 636
+    },
+    "e-ad2b980831d94640": {
+      "description": "mL",
+      "h": 16,
+      "w": 23,
+      "x": 172,
+      "y": 512
+    },
+    "e-b53e5c16e959539d": {
+      "description": "Rise Time",
+      "h": 19,
+      "w": 85,
+      "x": 1031,
+      "y": 159
+    },
+    "e-c177e9032cba0d50": {
+      "description": "Last Injection.",
+      "h": 19,
+      "w": 113,
+      "x": 1031,
+      "y": 247
+    },
+    "e-cb18bf1ea08650d2": {
+      "description": "X-ray Sync",
+      "h": 23,
+      "w": 98,
+      "x": 1028,
+      "y": 373
+    },
+    "e-d66e3a0ddb16f50b": {
+      "description": "80.",
+      "h": 46,
+      "w": 76,
+      "x": 660,
+      "y": 487
+    },
+    "e-da9d4afa215608c9": {
+      "description": "9.5",
+      "h": 32,
+      "w": 58,
+      "x": 1029,
+      "y": 275
+    },
+    "e-dbc038a7a1bc5a5c": {
+      "description": "mL/s",
+      "h": 18,
+      "w": 40,
+      "x": 1027,
+      "y": 329
+    },
+    "e-f66b0fdb308ffae7": {
+      "description": "Volume (mL) 21.0",
+      "h": 299,
+      "w": 415,
+      "x": 573,
+      "y": 158
+    },
+    "e-f8ab90f3c00edac6": {
+      "description": "A simple motion blur or moving back or forth.",
+      "h": 53,
+      "w": 46,
+      "x": 17,
+      "y": 725
+    },
+    "e-f8c89a9ec221de83": {
+      "description": "Auto refill at 30 mL.",
+      "h": 17,
+      "w": 127,
+      "x": 1128,
+      "y": 607
+    }
+  },
+  "targets": {},
+  "version": 1,
+  "viewport": {
+    "device_pixel_ratio": 1,
+    "height": 800,
+    "width": 1280
+  }
+}

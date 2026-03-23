@@ -1,0 +1,30 @@
+--- validation/server-health.json
+CLIOutputError
+caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+2
+--- validation/server-parse.json
+CLIOutputError
+caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+2
+--- validation/server-baseline.json
+CLIOutputError
+caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+2
+--- validation/server-check.json
+CLIOutputError
+caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+2
+--- validation/server-diff.json
+CLIOutputError
+caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+2
+--- validation/server-check-missing-config.json
+CLIOutputError
+caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+2

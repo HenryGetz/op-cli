@@ -1,0 +1,2 @@
+locator.count: Unexpected token "=" while parsing css selector "pre, code, text=/"assertions"/i". Did you mean to CSS.escape it?
+    at [stdin]:138:76

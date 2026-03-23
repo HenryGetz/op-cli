@@ -1,0 +1,179 @@
+=== head -20 server/main.py ===
+from __future__ import annotations
+
+import base64
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+import uuid
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+
+def _resolve_caliper_bin() -> str:
+    explicit = os.environ.get("CALIPER_BIN")
+    if explicit:
+=== killing existing listeners on :7771 ===
+2955715 
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2955715]
+=== attempt 1: uvicorn server.main:app from repo root ===
+command: SERVER_PORT=7771 CALIPER_BIN=./bin/caliper /home/wavy/miniconda3/envs/omniparser_cpu/bin/python -m uvicorn server.main:app --host 0.0.0.0 --port 7771
+attempt1_pid=2960288
+attempt1_try_1=http_000
+attempt1_try_2=http_000
+INFO:     Started server process [2960288]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:7771 (Press CTRL+C to quit)
+INFO:     127.0.0.1:42958 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_3=http_422
+INFO:     127.0.0.1:42974 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_4=http_422
+INFO:     127.0.0.1:42980 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_5=http_422
+INFO:     127.0.0.1:42982 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_6=http_422
+INFO:     127.0.0.1:42998 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_7=http_422
+INFO:     127.0.0.1:47528 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_8=http_422
+INFO:     127.0.0.1:47542 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_9=http_422
+INFO:     127.0.0.1:47550 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_10=http_422
+INFO:     127.0.0.1:47556 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_11=http_422
+INFO:     127.0.0.1:47570 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_12=http_422
+INFO:     127.0.0.1:47574 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_13=http_422
+INFO:     127.0.0.1:47590 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_14=http_422
+INFO:     127.0.0.1:47604 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_15=http_422
+INFO:     127.0.0.1:47608 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_16=http_422
+INFO:     127.0.0.1:55310 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_17=http_422
+INFO:     127.0.0.1:55318 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_18=http_422
+INFO:     127.0.0.1:55334 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_19=http_422
+INFO:     127.0.0.1:55342 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_20=http_422
+INFO:     127.0.0.1:55350 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_21=http_422
+INFO:     127.0.0.1:55366 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_22=http_422
+INFO:     127.0.0.1:55378 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_23=http_422
+INFO:     127.0.0.1:55392 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_24=http_422
+INFO:     127.0.0.1:55396 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_25=http_422
+INFO:     127.0.0.1:55412 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_26=http_422
+INFO:     127.0.0.1:41118 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_27=http_422
+INFO:     127.0.0.1:41124 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_28=http_422
+INFO:     127.0.0.1:41134 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_29=http_422
+INFO:     127.0.0.1:41136 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1_try_30=http_422
+attempt1_ready=0
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2960288]
+=== attempt 2: uvicorn main:app from server/ ===
+command: (cd /home/wavy/ai/caliper-ui/server && SERVER_PORT=7771 CALIPER_BIN=../bin/caliper /home/wavy/miniconda3/envs/omniparser_cpu/bin/python -m uvicorn main:app --host 0.0.0.0 --port 7771)
+attempt2_pid=2961024
+attempt2_try_1=http_000
+attempt2_try_2=http_000
+INFO:     Started server process [2961024]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:7771 (Press CTRL+C to quit)
+INFO:     127.0.0.1:41162 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_3=http_422
+INFO:     127.0.0.1:41170 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_4=http_422
+INFO:     127.0.0.1:47076 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_5=http_422
+INFO:     127.0.0.1:47090 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_6=http_422
+INFO:     127.0.0.1:47096 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_7=http_422
+INFO:     127.0.0.1:47100 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_8=http_422
+INFO:     127.0.0.1:47110 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_9=http_422
+INFO:     127.0.0.1:47120 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_10=http_422
+INFO:     127.0.0.1:47136 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_11=http_422
+INFO:     127.0.0.1:47146 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_12=http_422
+INFO:     127.0.0.1:47160 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_13=http_422
+INFO:     127.0.0.1:47166 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_14=http_422
+INFO:     127.0.0.1:58974 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_15=http_422
+INFO:     127.0.0.1:58990 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_16=http_422
+INFO:     127.0.0.1:59006 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_17=http_422
+INFO:     127.0.0.1:59016 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_18=http_422
+INFO:     127.0.0.1:59028 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_19=http_422
+INFO:     127.0.0.1:59036 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_20=http_422
+INFO:     127.0.0.1:59042 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_21=http_422
+INFO:     127.0.0.1:59058 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_22=http_422
+INFO:     127.0.0.1:59070 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_23=http_422
+INFO:     127.0.0.1:59082 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_24=http_422
+INFO:     127.0.0.1:47158 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_25=http_422
+INFO:     127.0.0.1:47164 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_26=http_422
+INFO:     127.0.0.1:47178 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_27=http_422
+INFO:     127.0.0.1:47194 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_28=http_422
+INFO:     127.0.0.1:47208 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_29=http_422
+INFO:     127.0.0.1:47212 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2_try_30=http_422
+attempt2_ready=0
+INFO:     127.0.0.1:58700 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:58710 - "POST /parse HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:58724 - "POST /baseline HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:58740 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:41258 - "POST /diff HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:41262 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:49354 - "POST /parse HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:49354 - "POST /baseline HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:33796 - "POST /parse HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:33796 - "POST /baseline HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:60732 - "POST /diff HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:60746 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2961024]

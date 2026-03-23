@@ -1,0 +1,3 @@
+[console:log] [Fast Refresh] rebuilding
+[console:log] [Fast Refresh] done in 892ms
+[console:info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold

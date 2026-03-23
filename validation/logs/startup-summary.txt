@@ -1,0 +1,5 @@
+PY=/home/wavy/miniconda3/envs/omniparser_cpu/bin/python
+server_pid=2734985
+studio_pid=2735779
+server_ready=0
+studio_ready=1

@@ -30,6 +30,8 @@ from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
 from check import CheckCommandError, add_check_subparser, run_check_command
 from config import OmniConfigError, ProjectConfig, ProjectConfigManager
+from engines.base import DetectedElement
+from engines.registry import get_engine, list_engine_status, list_engines
 from overlay import OverlayCommandError, add_overlay_subparser, run_overlay_command
 from resolution import EDGE_CHOICES, ResolutionError, rank_reference_candidates, resolve_reference_spec, region_to_bbox
 
@@ -48,6 +50,8 @@ SCHEMA_RELATIVE_PATHS: dict[str, str] = {
     "info": "cli/schemas/info.v1.json",
     "check": "cli/schemas/check.v1.json",
     "overlay": "cli/schemas/overlay.v1.json",
+    "baseline": "cli/schemas/baseline.v1.json",
+    "engines": "cli/schemas/engines.v1.json",
 }
 DEFAULT_BOX_THRESHOLD = 0.05
 DEFAULT_OCR_TEXT_THRESHOLD = 0.8
@@ -698,38 +702,8 @@ class OmniRuntime:
         self.uied_root = uied_root
         self.uied_text_engine = uied_text_engine
 
-        self._omni_utils: Any = None
-        self._som_model: Any = None
-        self._caption_model_processor: Any = None
-        self._uied_ip: Any = None
-        self._uied_text: Any = None
-        self._uied_merge: Any = None
-        self._uied_paddle_ocr: Any = None
-        self.effective_device = "cpu"
-
-    def _resolve_model_paths(self) -> tuple[Path, Path]:
-        som_path = self.model_dir / "icon_detect" / "model.pt"
-        caption_path = self.model_dir / "icon_caption_florence"
-
-        if not som_path.exists():
-            onnx_path = som_path.with_suffix(".onnx")
-            if onnx_path.exists():
-                som_path = onnx_path
-
-        if not som_path.exists() or not caption_path.exists():
-            hint = (
-                "Missing OmniParser model files. Expected paths:\n"
-                f"- {self.model_dir / 'icon_detect' / 'model.pt'} (or model.onnx)\n"
-                f"- {self.model_dir / 'icon_caption_florence'}\n"
-                "Download instructions (from OmniParser README):\n"
-                "for f in icon_detect/{train_args.yaml,model.pt,model.yaml} "
-                "icon_caption/{config.json,generation_config.json,model.safetensors}; "
-                "do huggingface-cli download microsoft/OmniParser-v2.0 \"$f\" --local-dir weights; done\n"
-                "mv weights/icon_caption weights/icon_caption_florence"
-            )
-            raise ModelNotFoundError(hint)
-
-        return som_path.resolve(), caption_path.resolve()
+        self._engine_impl = get_engine(self.engine)
+        self.effective_device = str(requested_device)
 
     def _captured_call(self, fn: Any, *args: Any, **kwargs: Any) -> tuple[Any, str]:
         stdout_buffer = io.StringIO()
@@ -739,47 +713,44 @@ class OmniRuntime:
         logs = stdout_buffer.getvalue() + stderr_buffer.getvalue()
         return result, logs
 
-    def _ensure_loaded(self) -> str:
-        if self._som_model is not None and self._caption_model_processor is not None:
-            return ""
+    def _build_structured_elements(
+        self,
+        *,
+        detected: list[DetectedElement],
+        image_width: int,
+        image_height: int,
+    ) -> list[dict[str, Any]]:
+        structured: list[dict[str, Any]] = []
+        for idx, element in enumerate(detected):
+            raw = element.raw if isinstance(element.raw, dict) else {}
+            bbox_ratio = raw.get("bbox_ratio")
+            if not isinstance(bbox_ratio, list) or len(bbox_ratio) != 4:
+                bbox_ratio = [
+                    float(element.bbox.x) / max(1, image_width),
+                    float(element.bbox.y) / max(1, image_height),
+                    float(element.bbox.x + element.bbox.w) / max(1, image_width),
+                    float(element.bbox.y + element.bbox.h) / max(1, image_height),
+                ]
 
-        if str(self.repo_root) not in sys.path:
-            sys.path.insert(0, str(self.repo_root))
-
-        def _load() -> None:
-            import importlib
-
-            try:
-                self._omni_utils = importlib.import_module("util.utils")
-            except ModuleNotFoundError as exc:
-                raise ProcessingError(
-                    "Could not import OmniParser runtime module 'util.utils'. "
-                    "Set --runtime-root <path> or OMNIPARSER_ROOT to your OmniParser directory "
-                    "(the folder containing util/utils.py)."
-                ) from exc
-            som_path, caption_path = self._resolve_model_paths()
-
-            if self.requested_device == "cuda":
-                import torch
-
-                if not torch.cuda.is_available():
-                    raise UserInputError(
-                        "--device cuda requested, but CUDA is not available on this machine."
-                    )
-                self.logger.warn(
-                    "OmniParser utility code currently forces CPU execution. Running on CPU."
-                )
-
-            self.effective_device = "cpu"
-            self._som_model = self._omni_utils.get_yolo_model(model_path=str(som_path))
-            self._caption_model_processor = self._omni_utils.get_caption_model_processor(
-                model_name="florence2",
-                model_name_or_path=str(caption_path),
-                device=self.effective_device,
+            structured.append(
+                {
+                    "index": idx,
+                    "element_id": str(element.element_id),
+                    "bbox": {
+                        "x": int(element.bbox.x),
+                        "y": int(element.bbox.y),
+                        "width": int(element.bbox.w),
+                        "height": int(element.bbox.h),
+                    },
+                    "label": str(element.label),
+                    "element_type": str(element.element_type),
+                    "confidence": max(0.0, min(1.0, round(float(element.confidence), 6))),
+                    "interactable": bool(raw.get("interactable", str(element.element_type) not in {"text", "region"})),
+                    "source": str(raw.get("source", element.source_engine)),
+                    "bbox_ratio": [round(float(v), 8) for v in bbox_ratio],
+                }
             )
-
-        _, logs = self._captured_call(_load)
-        return logs
+        return structured
 
     def parse_image(
         self,
@@ -797,21 +768,11 @@ class OmniRuntime:
             "box_threshold": round(box_threshold, 6),
             "engine": self.engine,
             "omniparser_version": self.omniparser_version,
+            "model_dir": str(self.model_dir),
+            "requested_device": self.requested_device,
+            "uied_root": str(self.uied_root) if self.uied_root else None,
+            "uied_text_engine": self.uied_text_engine,
         }
-        if self.engine == "uied":
-            cache_payload_key.update(
-                {
-                    "uied_root": str(self.uied_root) if self.uied_root else None,
-                    "uied_text_engine": self.uied_text_engine,
-                }
-            )
-        else:
-            cache_payload_key.update(
-                {
-                    "model_dir": str(self.model_dir),
-                    "requested_device": self.requested_device,
-                }
-            )
         cache_key = hashlib.sha256(
             json.dumps(cache_payload_key, sort_keys=True).encode("utf-8")
         ).hexdigest()
@@ -825,667 +786,62 @@ class OmniRuntime:
                     json.dump(data, handle)
             return data, True, ""
 
-        if self.engine == "uied":
-            parsed_data, logs = self._captured_call(
-                self._run_parse_uied,
-                image_path=image_path,
-                box_threshold=box_threshold,
-            )
-            _ensure_elements_have_ids(parsed_data)
-            if use_cache:
-                with cache_path.open("w", encoding="utf-8") as handle:
-                    json.dump(parsed_data, handle)
-            return parsed_data, False, logs
+        os.environ["OMNIPARSER_ROOT"] = str(self.repo_root)
+        if self.uied_root:
+            os.environ["UIED_ROOT"] = str(self.uied_root)
+        os.environ["CALIPER_UIED_TEXT_ENGINE"] = str(self.uied_text_engine)
 
-        model_logs = self._ensure_loaded()
+        _, load_logs = self._captured_call(
+            self._engine_impl.load,
+            model_dir=str(self.model_dir),
+            device=str(self.requested_device),
+        )
+        detected, detect_logs = self._captured_call(
+            self._engine_impl.detect,
+            str(image_path),
+        )
+        if not isinstance(detected, list):
+            raise ProcessingError("Detection engine returned invalid payload.")
 
-        def _run_parse() -> dict[str, Any]:
+        artifacts = getattr(self._engine_impl, "_last_artifacts", {})
+        if not isinstance(artifacts, dict):
+            artifacts = {}
+
+        image_width = int(artifacts.get("image_width", 0) or 0)
+        image_height = int(artifacts.get("image_height", 0) or 0)
+        if image_width <= 0 or image_height <= 0:
             image = _load_image_validated(image_path).convert("RGB")
             image_width, image_height = image.size
 
-            np_image = self._omni_utils.np.array(image)
-            ocr_raw = self._omni_utils.paddle_ocr.ocr(np_image, cls=False)
-            ocr_lines = ocr_raw[0] if ocr_raw else []
+        self.effective_device = str(artifacts.get("effective_device", self.requested_device))
 
-            ocr_texts: list[str] = []
-            ocr_bboxes_xyxy_pixel: list[list[int]] = []
-            ocr_scores: list[float] = []
+        parsed_data = {
+            "image_path": str(image_path),
+            "image_width": image_width,
+            "image_height": image_height,
+            "elements": self._build_structured_elements(
+                detected=detected,
+                image_width=image_width,
+                image_height=image_height,
+            ),
+            "annotated_image_base64": artifacts.get("annotated_image_base64", ""),
+            "raw_parsed_content_list": artifacts.get("raw_parsed_content_list", []),
+            "raw_label_coordinates_ratio_xywh": artifacts.get("raw_label_coordinates_ratio_xywh", []),
+            "raw_ocr": artifacts.get("raw_ocr", {"texts": [], "bboxes_xyxy_pixel": [], "scores": []}),
+            "box_threshold": box_threshold,
+            "effective_device": self.effective_device,
+        }
+        if "raw_uied" in artifacts:
+            parsed_data["raw_uied"] = artifacts["raw_uied"]
 
-            for line in ocr_lines:
-                score = float(line[1][1])
-                if score <= DEFAULT_OCR_TEXT_THRESHOLD:
-                    continue
-                ocr_texts.append(str(line[1][0]))
-                bbox_xyxy = self._omni_utils.get_xyxy(line[0])
-                ocr_bboxes_xyxy_pixel.append([bbox_xyxy[0], bbox_xyxy[1], bbox_xyxy[2], bbox_xyxy[3]])
-                ocr_scores.append(score)
-
-            overlay_ratio = max(image.size) / 3200.0
-            draw_bbox_config = {
-                "text_scale": 0.8 * overlay_ratio,
-                "text_thickness": max(int(2 * overlay_ratio), 1),
-                "text_padding": max(int(3 * overlay_ratio), 1),
-                "thickness": max(int(3 * overlay_ratio), 1),
-            }
-
-            annotated_b64, label_coordinates_ratio_xywh, parsed_content_list = self._omni_utils.get_som_labeled_img(
-                image,
-                self._som_model,
-                BOX_TRESHOLD=box_threshold,
-                output_coord_in_ratio=True,
-                ocr_bbox=ocr_bboxes_xyxy_pixel,
-                draw_bbox_config=draw_bbox_config,
-                caption_model_processor=self._caption_model_processor,
-                ocr_text=ocr_texts,
-                use_local_semantics=True,
-                iou_threshold=DEFAULT_IOU_THRESHOLD,
-                scale_img=False,
-                batch_size=DEFAULT_BATCH_SIZE,
-            )
-
-            yolo_boxes_xyxy_pixel, yolo_conf_tensor, _ = self._omni_utils.predict_yolo(
-                model=self._som_model,
-                image=image,
-                box_threshold=box_threshold,
-                imgsz=(image_height, image_width),
-                scale_img=False,
-                iou_threshold=0.1,
-            )
-
-            yolo_boxes_xyxy_pixel_list = yolo_boxes_xyxy_pixel.cpu().tolist()
-            yolo_scores = [float(value) for value in yolo_conf_tensor.cpu().tolist()]
-
-            yolo_boxes_xyxy_ratio = [
-                [
-                    box[0] / image_width,
-                    box[1] / image_height,
-                    box[2] / image_width,
-                    box[3] / image_height,
-                ]
-                for box in yolo_boxes_xyxy_pixel_list
-            ]
-            ocr_boxes_xyxy_ratio = [
-                [
-                    box[0] / image_width,
-                    box[1] / image_height,
-                    box[2] / image_width,
-                    box[3] / image_height,
-                ]
-                for box in ocr_bboxes_xyxy_pixel
-            ]
-
-            structured_elements: list[dict[str, Any]] = []
-            for idx, element in enumerate(parsed_content_list):
-                bbox_ratio = [float(v) for v in element.get("bbox", [0, 0, 0, 0])]
-                bbox_xywh_pixel = _ratio_xyxy_to_pixel_xywh(
-                    bbox_ratio, image_width=image_width, image_height=image_height
-                )
-
-                element_type = str(element.get("type", "unknown"))
-                if element_type == "text":
-                    confidence = _match_confidence(
-                        bbox_ratio,
-                        ocr_boxes_xyxy_ratio,
-                        ocr_scores,
-                    )
-                else:
-                    confidence = _match_confidence(
-                        bbox_ratio,
-                        yolo_boxes_xyxy_ratio,
-                        yolo_scores,
-                    )
-
-                structured_elements.append(
-                    {
-                        "index": idx,
-                        "element_id": _element_fingerprint(
-                            element_type=element_type,
-                            label=_safe_label(element.get("content")),
-                            bbox_ratio=bbox_ratio,
-                        ),
-                        "bbox": bbox_xywh_pixel,
-                        "label": _safe_label(element.get("content")),
-                        "element_type": element_type,
-                        "confidence": round(float(confidence), 6),
-                        "interactable": bool(element.get("interactivity", False)),
-                        "source": _safe_label(element.get("source")),
-                        "bbox_ratio": [round(v, 8) for v in bbox_ratio],
-                    }
-                )
-
-            return {
-                "image_path": str(image_path),
-                "image_width": image_width,
-                "image_height": image_height,
-                "elements": structured_elements,
-                "annotated_image_base64": annotated_b64,
-                "raw_parsed_content_list": parsed_content_list,
-                "raw_label_coordinates_ratio_xywh": label_coordinates_ratio_xywh,
-                "raw_ocr": {
-                    "texts": ocr_texts,
-                    "bboxes_xyxy_pixel": ocr_bboxes_xyxy_pixel,
-                    "scores": [round(v, 6) for v in ocr_scores],
-                },
-                "box_threshold": box_threshold,
-                "effective_device": self.effective_device,
-            }
-
-        parsed_data, parse_logs = self._captured_call(_run_parse)
         _ensure_elements_have_ids(parsed_data)
-        logs = model_logs + parse_logs
+        logs = load_logs + detect_logs
 
         if use_cache:
             with cache_path.open("w", encoding="utf-8") as handle:
                 json.dump(parsed_data, handle)
 
         return parsed_data, False, logs
-
-    def _ensure_uied_loaded(self) -> None:
-        if self._uied_ip is not None:
-            return
-        if self.uied_root is None:
-            raise ProcessingError("UIED engine selected but UIED root was not resolved.")
-        if str(self.uied_root) not in sys.path:
-            sys.path.insert(0, str(self.uied_root))
-
-        import time as time_module
-
-        if not hasattr(time_module, "clock"):
-            setattr(time_module, "clock", time_module.perf_counter)
-
-        existing_config_module = sys.modules.get("config")
-        removed_config_paths: list[str] = []
-        if existing_config_module is not None and not hasattr(existing_config_module, "__path__"):
-            # UIED expects a package named `config`, while this CLI also has a module named `config`.
-            # Keep a backup alias, remove the conflicting module entry and temporarily hide the module path
-            # so UIED's `config/CONFIG_UIED.py` can be imported as a package.
-            sys.modules.setdefault("caliper_cli_config", existing_config_module)
-            config_file = getattr(existing_config_module, "__file__", None)
-            if config_file:
-                config_dir = str(Path(config_file).resolve().parent)
-                removed_config_paths = [entry for entry in sys.path if entry == config_dir]
-                sys.path[:] = [entry for entry in sys.path if entry != config_dir]
-            del sys.modules["config"]
-
-        try:
-            self._uied_ip = importlib.import_module("detect_compo.ip_region_proposal")
-            self._uied_merge = importlib.import_module("detect_merge.merge")
-            if self.uied_text_engine == "google":
-                self._uied_text = importlib.import_module("detect_text.text_detection")
-        except ModuleNotFoundError as exc:
-            raise ProcessingError(
-                "Could not import UIED modules. Set --uied-root <path> or UIED_ROOT to your UIED directory."
-            ) from exc
-        finally:
-            for entry in reversed(removed_config_paths):
-                sys.path.insert(0, entry)
-
-    def _infer_uied_layout_regions(
-        self,
-        *,
-        image_width: int,
-        image_height: int,
-        elements: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        """Infer coarse layout containers that UIED's component detector often misses.
-
-        UIED is component-centric, so low-texture structural regions (e.g. dark sidebars)
-        may not appear as standalone components. These inferred regions are debug-only
-        overlays and are intentionally not added to `elements`.
-        """
-        if image_width <= 0 or image_height <= 0 or not elements:
-            return []
-
-        regions: list[dict[str, Any]] = []
-
-        edge_band_x = max(24, int(round(image_width * 0.12)))
-        edge_band_y = max(24, int(round(image_height * 0.12)))
-
-        left_bound = max(edge_band_x * 2, int(round(image_width * 0.3)))
-        left_items = []
-        for element in elements:
-            bbox = element.get("bbox", {})
-            x = int(bbox.get("x", 0))
-            width = int(bbox.get("width", 0))
-            right = x + width
-            if x <= edge_band_x and right <= left_bound:
-                left_items.append(element)
-        sidebar_left_added = False
-        left_rail_items = []
-        max_rail_width = max(80, int(round(image_width * 0.1)))
-        max_rail_height = max(140, int(round(image_height * 0.18)))
-        rail_edge_x = max(48, int(round(image_width * 0.08)))
-        for item in left_items:
-            bbox = item.get("bbox", {})
-            x = int(bbox.get("x", 0))
-            width = int(bbox.get("width", 0))
-            height = int(bbox.get("height", 0))
-            if str(item.get("element_type", "")).lower() == "text":
-                continue
-            if x <= rail_edge_x and width <= max_rail_width and height <= max_rail_height:
-                left_rail_items.append(item)
-
-        if len(left_rail_items) >= 4:
-            rail_right = max(int(item["bbox"]["x"]) + int(item["bbox"]["width"]) for item in left_rail_items)
-            rail_top = min(int(item["bbox"]["y"]) for item in left_rail_items)
-            rail_bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in left_rail_items)
-            rail_vertical_coverage = (rail_bottom - rail_top) / max(1, image_height)
-            if rail_vertical_coverage >= 0.55:
-                pad = max(10, int(round(image_width * 0.02)))
-                inferred_width = min(edge_band_x, rail_right + pad)
-                inferred_width = max(inferred_width, rail_right)
-                regions.append(
-                    {
-                        "name": "sidebar-left",
-                        "bbox": {
-                            "x": 0,
-                            "y": 0,
-                            "width": int(inferred_width),
-                            "height": int(image_height),
-                        },
-                        "confidence": round(min(1.0, 0.5 + (rail_vertical_coverage * 0.4)), 3),
-                        "source": "uied-layout-infer",
-                    }
-                )
-                sidebar_left_added = True
-
-        if not sidebar_left_added and len(left_items) >= 3:
-            right = max(int(item["bbox"]["x"]) + int(item["bbox"]["width"]) for item in left_items)
-            top = min(int(item["bbox"]["y"]) for item in left_items)
-            bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in left_items)
-            vertical_coverage = (bottom - top) / max(1, image_height)
-            if 30 <= right <= int(image_width * 0.35) and vertical_coverage >= 0.55:
-                regions.append(
-                    {
-                        "name": "sidebar-left",
-                        "bbox": {
-                            "x": 0,
-                            "y": 0,
-                            "width": int(right),
-                            "height": int(image_height),
-                        },
-                        "confidence": round(min(1.0, 0.45 + (vertical_coverage * 0.5)), 3),
-                        "source": "uied-layout-infer",
-                    }
-                )
-
-        right_bound = image_width - left_bound
-        right_items = []
-        for element in elements:
-            bbox = element.get("bbox", {})
-            x = int(bbox.get("x", 0))
-            width = int(bbox.get("width", 0))
-            right = x + width
-            if right >= (image_width - edge_band_x) and x >= right_bound:
-                right_items.append(element)
-        if len(right_items) >= 3:
-            left = min(int(item["bbox"]["x"]) for item in right_items)
-            top = min(int(item["bbox"]["y"]) for item in right_items)
-            bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in right_items)
-            vertical_coverage = (bottom - top) / max(1, image_height)
-            if int(image_width * 0.65) <= left <= (image_width - 30) and vertical_coverage >= 0.55:
-                regions.append(
-                    {
-                        "name": "sidebar-right",
-                        "bbox": {
-                            "x": int(left),
-                            "y": 0,
-                            "width": int(image_width - left),
-                            "height": int(image_height),
-                        },
-                        "confidence": round(min(1.0, 0.45 + (vertical_coverage * 0.5)), 3),
-                        "source": "uied-layout-infer",
-                    }
-                )
-
-        top_items = [
-            element
-            for element in elements
-            if int(element.get("bbox", {}).get("y", 0)) <= edge_band_y
-        ]
-        if len(top_items) >= 4:
-            left = min(int(item["bbox"]["x"]) for item in top_items)
-            right = max(int(item["bbox"]["x"]) + int(item["bbox"]["width"]) for item in top_items)
-            bottom = max(int(item["bbox"]["y"]) + int(item["bbox"]["height"]) for item in top_items)
-            horizontal_coverage = (right - left) / max(1, image_width)
-            if horizontal_coverage >= 0.7 and 20 <= bottom <= int(image_height * 0.25):
-                regions.append(
-                    {
-                        "name": "top-bar",
-                        "bbox": {
-                            "x": 0,
-                            "y": 0,
-                            "width": int(image_width),
-                            "height": int(bottom),
-                        },
-                        "confidence": round(min(1.0, 0.4 + (horizontal_coverage * 0.5)), 3),
-                        "source": "uied-layout-infer",
-                    }
-                )
-
-        deduped: list[dict[str, Any]] = []
-        seen: set[tuple[int, int, int, int, str]] = set()
-        for region in regions:
-            bbox = region["bbox"]
-            key = (bbox["x"], bbox["y"], bbox["width"], bbox["height"], str(region["name"]))
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(region)
-        return deduped
-
-    def _render_labeled_base64(
-        self,
-        *,
-        image_path: Path,
-        elements: list[dict[str, Any]],
-        inferred_regions: list[dict[str, Any]] | None = None,
-    ) -> str:
-        image = Image.open(image_path).convert("RGB")
-        draw = ImageDraw.Draw(image)
-        font = ImageFont.load_default()
-
-        for region in inferred_regions or []:
-            bbox = region.get("bbox", {})
-            x1 = int(bbox.get("x", 0))
-            y1 = int(bbox.get("y", 0))
-            x2 = x1 + int(bbox.get("width", 0))
-            y2 = y1 + int(bbox.get("height", 0))
-            color = (255, 210, 0)
-            draw.rectangle((x1, y1, x2, y2), outline=color, width=2)
-            confidence = float(region.get("confidence", 0.0))
-            name = str(region.get("name", "layout"))
-            caption = f"[layout] {name} c={confidence:.3f}"
-            draw.text((x1 + 2, max(0, y1 + 2)), caption, fill=color, font=font)
-
-        for element in elements:
-            bbox = element["bbox"]
-            x1 = int(bbox["x"])
-            y1 = int(bbox["y"])
-            x2 = x1 + int(bbox["width"])
-            y2 = y1 + int(bbox["height"])
-
-            element_type = str(element.get("element_type", "unknown"))
-            color = (0, 210, 255) if element_type == "text" else (30, 200, 60)
-            draw.rectangle((x1, y1, x2, y2), outline=color, width=2)
-
-            label = str(element.get("label", "")).replace("\n", " ").strip()
-            if len(label) > 36:
-                label = label[:33] + "..."
-            caption = f"#{element['index']} [{element_type}] {label}"
-            draw.text((x1 + 2, max(0, y1 - 12)), caption, fill=color, font=font)
-
-        output = io.BytesIO()
-        image.save(output, format="PNG")
-        return base64.b64encode(output.getvalue()).decode("ascii")
-
-    def _uied_detect_text_paddle(
-        self,
-        *,
-        input_image_path: Path,
-        output_root: Path,
-        name: str,
-        image_width: int,
-        image_height: int,
-    ) -> dict[str, Any]:
-        from paddleocr import PaddleOCR
-
-        if self._uied_paddle_ocr is None:
-            self._uied_paddle_ocr = PaddleOCR(use_angle_cls=True, lang="en")
-
-        ocr_result = self._uied_paddle_ocr.ocr(str(input_image_path), cls=True)
-        lines_raw: list[Any]
-        if isinstance(ocr_result, list) and len(ocr_result) == 1 and isinstance(ocr_result[0], list):
-            lines_raw = ocr_result[0]
-        elif isinstance(ocr_result, list):
-            lines_raw = ocr_result
-        else:
-            lines_raw = []
-
-        texts: list[dict[str, Any]] = []
-        for idx, line in enumerate(lines_raw):
-            if not isinstance(line, (list, tuple)) or len(line) < 2:
-                continue
-            points = line[0]
-            content_info = line[1]
-            if not isinstance(points, (list, tuple)):
-                continue
-            try:
-                xs = [int(round(float(point[0]))) for point in points]
-                ys = [int(round(float(point[1]))) for point in points]
-            except Exception:
-                continue
-            if not xs or not ys:
-                continue
-
-            content = ""
-            score = None
-            if isinstance(content_info, (list, tuple)) and len(content_info) >= 1:
-                content = str(content_info[0])
-                if len(content_info) > 1:
-                    try:
-                        score = float(content_info[1])
-                    except Exception:
-                        score = None
-            else:
-                content = str(content_info)
-
-            col_min = max(0, min(xs))
-            col_max = max(0, max(xs))
-            row_min = max(0, min(ys))
-            row_max = max(0, max(ys))
-            width = max(1, col_max - col_min)
-            height = max(1, row_max - row_min)
-
-            texts.append(
-                {
-                    "id": idx,
-                    "content": content,
-                    "column_min": col_min,
-                    "row_min": row_min,
-                    "column_max": col_max,
-                    "row_max": row_max,
-                    "width": width,
-                    "height": height,
-                    "score": score,
-                }
-            )
-
-        ocr_root = output_root / "ocr"
-        ocr_root.mkdir(parents=True, exist_ok=True)
-        image_shape = [int(image_height), int(image_width), 3]
-        payload = {
-            "img_shape": image_shape,
-            "texts": texts,
-        }
-        ocr_json_path = ocr_root / f"{name}.json"
-        ocr_json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        return payload
-
-    def _run_parse_uied(self, *, image_path: Path, box_threshold: float) -> dict[str, Any]:
-        self._ensure_uied_loaded()
-
-        pil_image = _load_image_validated(image_path).convert("RGB")
-        image_width, image_height = pil_image.size
-
-        key_params = {
-            "min-grad": 3,
-            "ffl-block": 5,
-            "min-ele-area": 25,
-            "merge-contained-ele": True,
-            "merge-line-to-paragraph": False,
-            "remove-bar": True,
-        }
-
-        workspace = Path(tempfile.mkdtemp(prefix="caliper-uied-"))
-        input_image_path = workspace / "input.png"
-        output_root = workspace / "output"
-        output_root.mkdir(parents=True, exist_ok=True)
-
-        pil_image.save(input_image_path)
-        name = input_image_path.stem
-
-        raw_text_json: dict[str, Any] | None = None
-        raw_merge_json: dict[str, Any] | None = None
-        raw_compo_json: dict[str, Any] | None = None
-        elements: list[dict[str, Any]] = []
-
-        try:
-            self._uied_ip.compo_detection(
-                str(input_image_path),
-                str(output_root),
-                key_params,
-                resize_by_height=image_height,
-                classifier=None,
-                show=False,
-            )
-
-            compo_json_path = output_root / "ip" / f"{name}.json"
-            if not compo_json_path.exists():
-                raise ProcessingError(f"UIED component output missing: {compo_json_path}")
-            raw_compo_json = json.loads(compo_json_path.read_text(encoding="utf-8"))
-
-            merge_json_path = output_root / "merge" / f"{name}.json"
-            if self.uied_text_engine != "none":
-                if self.uied_text_engine == "paddle":
-                    raw_text_json = self._uied_detect_text_paddle(
-                        input_image_path=input_image_path,
-                        output_root=output_root,
-                        name=name,
-                        image_width=image_width,
-                        image_height=image_height,
-                    )
-                else:
-                    if self._uied_text is None:
-                        raise ProcessingError("UIED text module is not loaded.")
-                    self._uied_text.text_detection(
-                        input_file=str(input_image_path),
-                        output_file=str(output_root),
-                        show=False,
-                        method=self.uied_text_engine,
-                    )
-                text_json_path = output_root / "ocr" / f"{name}.json"
-                if not text_json_path.exists():
-                    raise ProcessingError(f"UIED OCR output missing: {text_json_path}")
-                if raw_text_json is None:
-                    raw_text_json = json.loads(text_json_path.read_text(encoding="utf-8"))
-
-                (output_root / "merge").mkdir(parents=True, exist_ok=True)
-                self._uied_merge.merge(
-                    str(input_image_path),
-                    str(compo_json_path),
-                    str(text_json_path),
-                    str(output_root / "merge"),
-                    is_remove_bar=bool(key_params["remove-bar"]),
-                    is_paragraph=bool(key_params["merge-line-to-paragraph"]),
-                    show=False,
-                )
-                if merge_json_path.exists():
-                    raw_merge_json = json.loads(merge_json_path.read_text(encoding="utf-8"))
-
-            source_compos = []
-            source_tag = "uied-ip"
-            if raw_merge_json and isinstance(raw_merge_json.get("compos"), list):
-                source_compos = list(raw_merge_json["compos"])
-                source_tag = "uied-merge"
-            elif raw_compo_json and isinstance(raw_compo_json.get("compos"), list):
-                source_compos = list(raw_compo_json["compos"])
-
-            normalized_entries: list[tuple[int, int, int, dict[str, Any]]] = []
-            for raw in source_compos:
-                if not isinstance(raw, dict):
-                    continue
-                if "position" in raw and isinstance(raw["position"], dict):
-                    position = raw["position"]
-                    x1 = int(position.get("column_min", 0))
-                    y1 = int(position.get("row_min", 0))
-                    x2 = int(position.get("column_max", x1))
-                    y2 = int(position.get("row_max", y1))
-                else:
-                    x1 = int(raw.get("column_min", 0))
-                    y1 = int(raw.get("row_min", 0))
-                    x2 = int(raw.get("column_max", x1))
-                    y2 = int(raw.get("row_max", y1))
-
-                width = max(1, x2 - x1)
-                height = max(1, y2 - y1)
-                class_name = str(raw.get("class", "Compo"))
-                text_content = str(raw.get("text_content", "")).strip()
-                label = text_content if text_content else class_name
-
-                class_lower = class_name.strip().lower()
-                if class_lower == "text":
-                    element_type = "text"
-                elif class_lower == "block":
-                    element_type = "block"
-                else:
-                    element_type = "compo"
-
-                bbox_ratio = [
-                    x1 / max(1, image_width),
-                    y1 / max(1, image_height),
-                    (x1 + width) / max(1, image_width),
-                    (y1 + height) / max(1, image_height),
-                ]
-                element = {
-                    "index": -1,
-                    "element_id": _element_fingerprint(
-                        element_type=element_type,
-                        label=label,
-                        bbox_ratio=bbox_ratio,
-                    ),
-                    "bbox": {
-                        "x": x1,
-                        "y": y1,
-                        "width": width,
-                        "height": height,
-                    },
-                    "label": label,
-                    "element_type": element_type,
-                    "confidence": round(float(raw.get("confidence", 1.0)), 6),
-                    "interactable": element_type not in {"text", "block"},
-                    "source": source_tag,
-                    "bbox_ratio": [round(v, 8) for v in bbox_ratio],
-                    "uied_class": class_name,
-                }
-                normalized_entries.append((int(raw.get("id", 0)), y1, x1, element))
-
-            normalized_entries.sort(key=lambda item: (item[0], item[1], item[2]))
-            for idx, (_, _, _, element) in enumerate(normalized_entries):
-                element["index"] = idx
-                elements.append(element)
-
-            inferred_regions = self._infer_uied_layout_regions(
-                image_width=image_width,
-                image_height=image_height,
-                elements=elements,
-            )
-            annotated_b64 = self._render_labeled_base64(
-                image_path=image_path,
-                elements=elements,
-                inferred_regions=inferred_regions,
-            )
-
-            return {
-                "image_path": str(image_path),
-                "image_width": image_width,
-                "image_height": image_height,
-                "elements": elements,
-                "annotated_image_base64": annotated_b64,
-                "raw_parsed_content_list": source_compos,
-                "raw_label_coordinates_ratio_xywh": [element["bbox_ratio"] for element in elements],
-                "raw_ocr": raw_text_json or {"texts": [], "bboxes_xyxy_pixel": [], "scores": []},
-                "raw_uied": {
-                    "ip": raw_compo_json,
-                    "merge": raw_merge_json,
-                    "text_engine": self.uied_text_engine,
-                    "inferred_regions": inferred_regions,
-                },
-                "box_threshold": box_threshold,
-                "effective_device": "cpu",
-            }
-        finally:
-            shutil.rmtree(workspace, ignore_errors=True)
 
 
 def _save_annotated_image(annotated_b64: str, output_path: Path) -> Path:
@@ -1945,6 +1301,229 @@ def _layout_summary(elements: list[dict[str, Any]], image_width: int, image_heig
     return summaries
 
 
+def _slugify_token(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower()).strip("-")
+    return slug or "item"
+
+
+def _bbox_bounds(bbox: dict[str, Any]) -> tuple[int, int, int, int]:
+    x = int(bbox.get("x", 0))
+    y = int(bbox.get("y", 0))
+    width = int(bbox.get("width", 0))
+    height = int(bbox.get("height", 0))
+    return x, y, x + width, y + height
+
+
+def _ranges_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
+    return min(a_end, b_end) > max(a_start, b_start)
+
+
+def _pick_horizontal_neighbor(
+    *,
+    source_idx: int,
+    elements: list[dict[str, Any]],
+) -> tuple[int, int] | None:
+    src_bbox = elements[source_idx]["bbox"]
+    src_left, src_top, src_right, src_bottom = _bbox_bounds(src_bbox)
+    src_center_y = (src_top + src_bottom) / 2.0
+
+    best_idx: int | None = None
+    best_key: tuple[int, float, int] | None = None
+
+    for candidate_idx, candidate in enumerate(elements):
+        if candidate_idx == source_idx:
+            continue
+        cand_left, cand_top, _cand_right, cand_bottom = _bbox_bounds(candidate["bbox"])
+        if cand_left < src_right:
+            continue
+        if not _ranges_overlap(src_top, src_bottom, cand_top, cand_bottom):
+            continue
+
+        gap = cand_left - src_right
+        cand_center_y = (cand_top + cand_bottom) / 2.0
+        key = (gap, abs(cand_center_y - src_center_y), cand_left)
+        if best_key is None or key < best_key:
+            best_key = key
+            best_idx = candidate_idx
+
+    if best_idx is None or best_key is None:
+        return None
+    return best_idx, int(best_key[0])
+
+
+def _pick_vertical_neighbor(
+    *,
+    source_idx: int,
+    elements: list[dict[str, Any]],
+) -> tuple[int, int] | None:
+    src_bbox = elements[source_idx]["bbox"]
+    src_left, src_top, src_right, src_bottom = _bbox_bounds(src_bbox)
+    src_center_x = (src_left + src_right) / 2.0
+
+    best_idx: int | None = None
+    best_key: tuple[int, float, int] | None = None
+
+    for candidate_idx, candidate in enumerate(elements):
+        if candidate_idx == source_idx:
+            continue
+        cand_left, cand_top, cand_right, _cand_bottom = _bbox_bounds(candidate["bbox"])
+        if cand_top < src_bottom:
+            continue
+        if not _ranges_overlap(src_left, src_right, cand_left, cand_right):
+            continue
+
+        gap = cand_top - src_bottom
+        cand_center_x = (cand_left + cand_right) / 2.0
+        key = (gap, abs(cand_center_x - src_center_x), cand_top)
+        if best_key is None or key < best_key:
+            best_key = key
+            best_idx = candidate_idx
+
+    if best_idx is None or best_key is None:
+        return None
+    return best_idx, int(best_key[0])
+
+
+def _build_baseline_config(
+    *,
+    image_path: Path,
+    image_width: int,
+    image_height: int,
+    elements: list[dict[str, Any]],
+    project_name: str | None,
+    tolerance: int,
+) -> tuple[dict[str, Any], int, int]:
+    regions: dict[str, dict[str, Any]] = {}
+    region_name_by_index: dict[int, str] = {}
+    used_region_names: set[str] = set()
+
+    for idx, element in enumerate(elements):
+        bbox = element["bbox"]
+        base_name = str(element.get("element_id") or f"element-{idx}")
+        region_name = _slugify_token(base_name)
+        suffix = 2
+        while region_name in used_region_names:
+            region_name = f"{_slugify_token(base_name)}-{suffix}"
+            suffix += 1
+        used_region_names.add(region_name)
+
+        regions[region_name] = {
+            "x": int(bbox["x"]),
+            "y": int(bbox["y"]),
+            "w": int(bbox["width"]),
+            "h": int(bbox["height"]),
+            "description": str(element.get("label", "")).strip() or None,
+        }
+        region_name_by_index[idx] = region_name
+
+    assertions: list[dict[str, Any]] = []
+    used_assertion_ids: set[str] = set()
+
+    def add_assertion(assertion: dict[str, Any]) -> None:
+        base_id = _slugify_token(str(assertion.get("id", "assertion")))
+        assertion_id = base_id
+        suffix = 2
+        while assertion_id in used_assertion_ids:
+            assertion_id = f"{base_id}-{suffix}"
+            suffix += 1
+        assertion["id"] = assertion_id
+        used_assertion_ids.add(assertion_id)
+        assertions.append(assertion)
+
+    for idx, element in enumerate(elements):
+        region_name = region_name_by_index[idx]
+        bbox = element["bbox"]
+        add_assertion(
+            {
+                "id": f"region-{region_name}-width",
+                "type": "region_dimension",
+                "region": region_name,
+                "property": "width",
+                "expected": int(bbox["width"]),
+                "tolerance": int(tolerance),
+                "description": f"{region_name} width baseline",
+            }
+        )
+        add_assertion(
+            {
+                "id": f"region-{region_name}-height",
+                "type": "region_dimension",
+                "region": region_name,
+                "property": "height",
+                "expected": int(bbox["height"]),
+                "tolerance": int(tolerance),
+                "description": f"{region_name} height baseline",
+            }
+        )
+
+    horizontal_pairs: set[tuple[int, int]] = set()
+    vertical_pairs: set[tuple[int, int]] = set()
+
+    for idx in range(len(elements)):
+        horizontal_neighbor = _pick_horizontal_neighbor(source_idx=idx, elements=elements)
+        if horizontal_neighbor is not None:
+            horizontal_pairs.add((idx, horizontal_neighbor[0]))
+        vertical_neighbor = _pick_vertical_neighbor(source_idx=idx, elements=elements)
+        if vertical_neighbor is not None:
+            vertical_pairs.add((idx, vertical_neighbor[0]))
+
+    for from_idx, to_idx in sorted(horizontal_pairs):
+        from_region = region_name_by_index[from_idx]
+        to_region = region_name_by_index[to_idx]
+        from_bbox = elements[from_idx]["bbox"]
+        to_bbox = elements[to_idx]["bbox"]
+        expected_gap = max(0, int(to_bbox["x"]) - (int(from_bbox["x"]) + int(from_bbox["width"])))
+
+        add_assertion(
+            {
+                "id": f"gap-x-{from_region}-to-{to_region}",
+                "type": "measurement",
+                "from": {"ref": f"region:{from_region}", "edge": "right"},
+                "to": {"ref": f"region:{to_region}", "edge": "left"},
+                "axis": "x",
+                "expected": expected_gap,
+                "tolerance": int(tolerance),
+                "description": f"horizontal gap from {from_region} to {to_region}",
+            }
+        )
+
+    for from_idx, to_idx in sorted(vertical_pairs):
+        from_region = region_name_by_index[from_idx]
+        to_region = region_name_by_index[to_idx]
+        from_bbox = elements[from_idx]["bbox"]
+        to_bbox = elements[to_idx]["bbox"]
+        expected_gap = max(0, int(to_bbox["y"]) - (int(from_bbox["y"]) + int(from_bbox["height"])))
+
+        add_assertion(
+            {
+                "id": f"gap-y-{from_region}-to-{to_region}",
+                "type": "measurement",
+                "from": {"ref": f"region:{from_region}", "edge": "bottom"},
+                "to": {"ref": f"region:{to_region}", "edge": "top"},
+                "axis": "y",
+                "expected": expected_gap,
+                "tolerance": int(tolerance),
+                "description": f"vertical gap from {from_region} to {to_region}",
+            }
+        )
+
+    config_payload: dict[str, Any] = {
+        "version": 1,
+        "project_name": project_name or image_path.stem,
+        "reference_image": str(image_path.resolve()),
+        "viewport": {
+            "width": int(image_width),
+            "height": int(image_height),
+            "device_pixel_ratio": 1,
+        },
+        "regions": regions,
+        "targets": {},
+        "assertions": assertions,
+    }
+
+    return config_payload, len(horizontal_pairs), len(vertical_pairs)
+
+
 def _output_error_json(
     *,
     response_context: ResponseContext,
@@ -2142,6 +1721,26 @@ def _cmd_doctor(
                 "runtime_root": str(runtime_root) if runtime_root else None,
                 "error": runtime_resolution_error,
                 "hint": "Set OMNIPARSER_ROOT/CALIPER_RUNTIME_ROOT or pass --runtime-root.",
+            },
+        )
+
+    engine_statuses = list_engine_status()
+    for engine_status in engine_statuses:
+        engine_name = str(engine_status.get("name", "unknown"))
+        available = bool(engine_status.get("available"))
+        reason = engine_status.get("reason")
+        add_check(
+            check_id=f"engine:{engine_name}",
+            status="pass" if available else "fail",
+            message=(
+                f"Detection engine '{engine_name}' is available."
+                if available
+                else f"Detection engine '{engine_name}' is unavailable."
+            ),
+            details={
+                "display_name": engine_status.get("display_name"),
+                "available": available,
+                "reason": reason,
             },
         )
 
@@ -2389,6 +1988,7 @@ def _cmd_doctor(
                 "path": str(install_env_path),
                 "values": install_env_values,
             },
+            "engines": engine_statuses,
             "parse_smoke": parse_smoke,
             "parse_smoke_uied": parse_smoke_uied,
             "recommendations": recommendations,
@@ -2580,6 +2180,33 @@ def _cmd_measure(
             "selected_axis": args.axis,
             "selected_distance_px": selected_distance,
         },
+    }
+    _write_json_stdout(payload, response_context=response_context)
+    return 0
+
+
+def _cmd_engines(
+    args: argparse.Namespace,
+    response_context: ResponseContext,
+    *,
+    omniparser_version: str,
+) -> int:
+    del args  # currently unused; reserved for future output modes
+    start_ms = _perf_ms()
+    engines = list_engine_status()
+    payload = {
+        "status": "success",
+        "error": None,
+        "warnings": [],
+        "meta": {
+            "command": response_context.command,
+            "request_id": response_context.request_id,
+            "timestamp_utc": response_context.timestamp_utc,
+            "processing_time_ms": int(round(_perf_ms() - start_ms)),
+            "omniparser_version": omniparser_version,
+            "cli_version": CLI_VERSION,
+        },
+        "engines": engines,
     }
     _write_json_stdout(payload, response_context=response_context)
     return 0
@@ -3375,6 +3002,90 @@ def _cmd_info(
     return 0
 
 
+def _cmd_baseline(
+    args: argparse.Namespace,
+    runtime: OmniRuntime,
+    logger: Console,
+    project_config: ProjectConfig | None,
+    response_context: ResponseContext,
+    config_sha256: str | None,
+) -> int:
+    start_ms = _perf_ms()
+    if int(args.tolerance) < 0:
+        raise UserInputError("--tolerance must be >= 0.")
+
+    image_path = _resolve_image_path(args.image)
+    image_sha256 = _sha256_file(image_path)
+
+    parsed_data, cache_hit, logs = runtime.parse_image(
+        image_path=image_path,
+        box_threshold=DEFAULT_BOX_THRESHOLD,
+        use_cache=args.cache,
+    )
+    if args.verbose and logs:
+        logger.debug(logs.rstrip())
+
+    image_width = int(parsed_data["image_width"])
+    image_height = int(parsed_data["image_height"])
+    elements = list(parsed_data.get("elements", []))
+
+    config_payload, horizontal_pair_count, vertical_pair_count = _build_baseline_config(
+        image_path=image_path,
+        image_width=image_width,
+        image_height=image_height,
+        elements=elements,
+        project_name=args.project_name,
+        tolerance=int(args.tolerance),
+    )
+
+    config_path = (
+        Path(args.save_config).expanduser().resolve()
+        if args.save_config
+        else (Path.cwd() / ".caliper.json").resolve()
+    )
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        json.dumps(config_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    processing_time_ms = int(round(_perf_ms() - start_ms))
+    payload = {
+        "status": "success",
+        "error": None,
+        "meta": _meta(
+            response_context=response_context,
+            image_path=str(image_path),
+            image_width=image_width,
+            image_height=image_height,
+            processing_time_ms=processing_time_ms,
+            omniparser_version=runtime.omniparser_version,
+            cli_version=CLI_VERSION,
+            cache_hit=cache_hit,
+            extra={
+                "config_path": str(config_path),
+                "image_sha256": image_sha256,
+                "config_sha256": config_sha256,
+                "detected_elements": len(elements),
+                "horizontal_pairs": horizontal_pair_count,
+                "vertical_pairs": vertical_pair_count,
+                "tolerance": int(args.tolerance),
+            },
+        ),
+        "baseline": {
+            "config_path": str(config_path),
+            "project_name": config_payload.get("project_name"),
+            "reference_image": config_payload.get("reference_image"),
+            "viewport": config_payload.get("viewport"),
+            "region_count": len(config_payload.get("regions", {})),
+            "assertion_count": len(config_payload.get("assertions", [])),
+            "config": config_payload,
+        },
+    }
+    _write_json_stdout(payload, response_context=response_context)
+    return 0
+
+
 class OmniArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:  # pragma: no cover - argparse dispatch
         raise UserInputError(message)
@@ -3385,6 +3096,11 @@ def _build_parser(
     cli_root: Path,
     runtime_root: Path,
 ) -> tuple[OmniArgumentParser, dict[str, argparse.ArgumentParser]]:
+    engine_choices = list_engines()
+    if not engine_choices:
+        raise UserInputError("No detection engines are registered.")
+    default_engine = "omniparser" if "omniparser" in engine_choices else engine_choices[0]
+
     description = (
         "caliper: Production CLI wrapper for OmniParser + UIED\n\n"
         "Subcommands:\n"
@@ -3399,6 +3115,8 @@ def _build_parser(
         "  info     Show image metadata and UI summary. Example: caliper info screen.png\n"
         "  check    Run project assertions from .caliper.json. Example: caliper check screen.png --quiet\n"
         "  overlay  Blend two screenshots with optional overlays. Example: caliper overlay a.png b.png -o overlay.png\n"
+        "  baseline Auto-generate .caliper.json assertions from a reference image. Example: caliper baseline screen.png\n"
+        "  engines  List registered detection engines and dependency availability. Example: caliper engines --json\n"
         "  help     Show top-level or subcommand help. Example: caliper help parse"
     )
 
@@ -3456,9 +3174,9 @@ def _build_parser(
     )
     parser.add_argument(
         "--engine",
-        choices=["omniparser", "uied"],
-        default="omniparser",
-        help="Detection engine (default: omniparser).",
+        choices=engine_choices,
+        default=default_engine,
+        help=f"Detection engine (default: {default_engine}).",
     )
     parser.add_argument(
         "--uied-root",
@@ -3530,7 +3248,7 @@ def _build_parser(
         )
         command_parser.add_argument(
             "--engine",
-            choices=["omniparser", "uied"],
+            choices=engine_choices,
             default=argparse.SUPPRESS,
             help=argparse.SUPPRESS,
         )
@@ -3933,6 +3651,43 @@ def _build_parser(
         default_box_threshold=DEFAULT_BOX_THRESHOLD,
     )
 
+    baseline_help = (
+        "Generate a starter .caliper.json using detected element boxes and adjacency gaps.\n\n"
+        "Examples:\n"
+        "  caliper baseline screen.png --quiet\n"
+        "  caliper baseline screen.png --save-config ./baseline.json --project-name my-ui\n"
+        "  caliper baseline screen.png --tolerance 8\n"
+    )
+    baseline_parser = subparsers.add_parser(
+        "baseline",
+        help="Auto-generate a baseline .caliper.json from a reference image.",
+        epilog=baseline_help,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    add_trailing_global_flags(baseline_parser)
+    baseline_parser.add_argument("image", help="Reference image path.")
+    baseline_parser.add_argument(
+        "--save-config",
+        help="Output config path (default: .caliper.json in current working directory).",
+    )
+    baseline_parser.add_argument(
+        "--project-name",
+        help="Project name stored in generated config (default: image filename stem).",
+    )
+    baseline_parser.add_argument(
+        "--tolerance",
+        type=int,
+        default=DEFAULT_DIFF_TOLERANCE,
+        help=f"Default tolerance (pixels) for generated assertions (default: {DEFAULT_DIFF_TOLERANCE}).",
+    )
+
+    engines_parser = subparsers.add_parser(
+        "engines",
+        help="List registered detection engines and availability.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    add_trailing_global_flags(engines_parser)
+
     help_parser = subparsers.add_parser("help", help="Show help for top-level or a subcommand.")
     help_parser.add_argument(
         "help_command",
@@ -3949,6 +3704,8 @@ def _build_parser(
             "info",
             "check",
             "overlay",
+            "baseline",
+            "engines",
             "help",
         ],
         help="Subcommand to show help for.",
@@ -3966,6 +3723,8 @@ def _build_parser(
         "info": info_parser,
         "check": check_parser,
         "overlay": overlay_parser,
+        "baseline": baseline_parser,
+        "engines": engines_parser,
         "help": help_parser,
     }
     return parser, subparser_map
@@ -4122,6 +3881,13 @@ def main(argv: list[str] | None = None) -> int:
                 cli_root=cli_root,
             )
 
+        if args.command == "engines":
+            return _cmd_engines(
+                args,
+                response_context,
+                omniparser_version=omniparser_version,
+            )
+
         runtime_root = _resolve_runtime_root(cli_root, runtime_override=getattr(args, "runtime_root", None))
         omniparser_version = _omniparser_version(runtime_root)
 
@@ -4188,6 +3954,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             _write_json_stdout(payload, response_context=response_context)
             return exit_code
+        if args.command == "baseline":
+            return _cmd_baseline(args, runtime, logger, project_config, response_context, config_sha256)
         raise UserInputError(f"Unknown command: {args.command}")
     except (
         OmniCLIError,

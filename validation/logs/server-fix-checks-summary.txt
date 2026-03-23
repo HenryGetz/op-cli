@@ -1,0 +1,15 @@
+health_http=422
+parse_http=422
+baseline_http=422
+check_http=422
+diff_http=422
+check_missing_http=422
+health_status=error
+health_result=
+parse_status=error
+baseline_status=error
+baseline_assertions_len=0
+check_status=error
+diff_status=error
+missing_error=caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.

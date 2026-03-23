@@ -1,0 +1,12 @@
+HTTP/1.1 307 Temporary Redirect
+Vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept-Encoding
+link: </_next/static/media/806de4d605d3ad01-s.p.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2", </_next/static/media/fc727f226c737876-s.p.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2"
+Location: /author
+Cache-Control: no-store, must-revalidate
+X-Powered-By: Next.js
+Content-Type: text/html; charset=utf-8
+Date: Sun, 22 Mar 2026 23:51:11 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+

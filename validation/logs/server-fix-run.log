@@ -1,0 +1,111 @@
+INFO:     Started server process [2816869]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:7771 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50116 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42284 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52810 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50708 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50716 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50726 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50742 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50748 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:50762 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:50774 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50778 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50794 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:36186 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58342 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46728 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59638 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59648 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45770 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:45774 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45780 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:53812 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53194 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52456 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33510 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33512 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33520 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:33534 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33550 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:56016 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38890 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55662 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50450 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44182 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44186 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44190 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:44204 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44218 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:55232 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54086 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50074 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50076 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50080 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:50084 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50092 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:57812 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58252 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56302 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59974 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60076 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60082 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60092 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:60100 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60104 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:55606 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54836 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39716 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55976 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52442 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47038 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47050 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47060 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47068 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34054 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:34064 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:34068 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34072 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34076 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:47232 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40012 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34760 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58490 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50808 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50818 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:50820 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50822 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:60222 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36522 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48060 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53740 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48078 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48094 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48104 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:48118 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48130 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:56572 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57846 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47962 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57718 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43560 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36554 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36570 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36582 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:36594 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36600 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:44274 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43698 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53222 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44106 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53668 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53684 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:53690 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53706 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:38206 - "POST /parse HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2816869]

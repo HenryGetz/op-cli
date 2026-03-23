@@ -1,0 +1,288 @@
+openapi: 3.1.0
+info:
+  title: CaliperUI Server API
+  version: "1.0.0"
+  description: |
+    FastAPI wrapper around the `caliper` CLI. Every endpoint shells out to the CLI and
+    returns the CLI JSON payload unchanged with one additional field: `http_status`.
+servers:
+  - url: http://localhost:7771
+paths:
+  /parse:
+    post:
+      summary: Run `caliper parse` on an uploaded image
+      operationId: parseImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                confidence_threshold:
+                  type: number
+      responses:
+        "200":
+          description: Parse completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+        "422":
+          description: CLI returned non-zero exit status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+
+  /debug:
+    post:
+      summary: Run `caliper debug` and include generated annotated image
+      operationId: debugImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                confidence_threshold:
+                  type: number
+                max_elements:
+                  type: integer
+      responses:
+        "200":
+          description: Debug completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+        "422":
+          description: CLI returned non-zero exit status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+
+  /check:
+    post:
+      summary: Run `caliper check` against an uploaded image and config
+      operationId: checkImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                config_json:
+                  type: string
+                  description: Raw `.caliper.json` content as a JSON string.
+                config_file:
+                  type: string
+                  format: binary
+                only:
+                  type: string
+                  description: Comma-separated assertion IDs.
+                skip:
+                  type: string
+                  description: Comma-separated assertion IDs.
+      responses:
+        "200":
+          description: Check completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+        "422":
+          description: CLI returned non-zero exit status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+
+  /baseline:
+    post:
+      summary: Run `caliper baseline` and return generated config payload
+      operationId: generateBaseline
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                project_name:
+                  type: string
+                tolerance:
+                  type: integer
+                custom_regions:
+                  type: string
+                  description: Optional JSON string for authoring overrides.
+      responses:
+        "200":
+          description: Baseline config generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+        "422":
+          description: CLI returned non-zero exit status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+
+  /diff:
+    post:
+      summary: Run `caliper diff` on two uploaded images
+      operationId: diffImages
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image1, image2]
+              properties:
+                image1:
+                  type: string
+                  format: binary
+                image2:
+                  type: string
+                  format: binary
+                tolerance:
+                  type: integer
+      responses:
+        "200":
+          description: Diff completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+        "422":
+          description: CLI returned non-zero exit status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+
+  /overlay:
+    post:
+      summary: Run `caliper overlay` on two uploaded images
+      operationId: overlayImages
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image1, image2]
+              properties:
+                image1:
+                  type: string
+                  format: binary
+                image2:
+                  type: string
+                  format: binary
+                opacity:
+                  type: number
+      responses:
+        "200":
+          description: Overlay image generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+        "422":
+          description: CLI returned non-zero exit status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+
+  /crop:
+    post:
+      summary: Run `caliper crop` using region/element selectors
+      operationId: cropImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                region:
+                  type: string
+                  description: x,y,width,height
+                region_name:
+                  type: string
+                element:
+                  type: integer
+                padding:
+                  type: integer
+      responses:
+        "200":
+          description: Crop generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+        "422":
+          description: CLI returned non-zero exit status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+
+  /health:
+    get:
+      summary: Runtime health check via `caliper doctor`
+      operationId: health
+      responses:
+        "200":
+          description: Runtime is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+        "422":
+          description: Runtime check failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CliPayload"
+
+components:
+  schemas:
+    CliPayload:
+      type: object
+      additionalProperties: true
+      required:
+        - http_status
+      properties:
+        http_status:
+          type: integer
+          minimum: 100
+          maximum: 599
+

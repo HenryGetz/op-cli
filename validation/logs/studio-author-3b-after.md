@@ -1,0 +1,37 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: Caliper Studio
+        - generic [ref=e6]: Visual QA Workbench
+      - generic [ref=e7]:
+        - link "Author" [ref=e8] [cursor=pointer]:
+          - /url: /author
+        - link "Triage" [ref=e9] [cursor=pointer]:
+          - /url: /triage
+        - link "History" [ref=e10] [cursor=pointer]:
+          - /url: /history
+  - main [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - heading "Authoring Mode" [level=1] [ref=e16]
+            - paragraph [ref=e17]: Drop a reference screenshot, inspect detected boxes, draw regions, and export baseline config.
+          - generic [ref=e18]:
+            - button "Draw Region" [ref=e19] [cursor=pointer]
+            - button "Generate Config" [ref=e20] [cursor=pointer]
+        - img "Reference screenshot" [ref=e39]
+        - generic [ref=e26]:
+          - generic [ref=e27]: Dry Run (.caliper.json)
+          - generic [ref=e28]:
+            - generic [ref=e29]: "Project:"
+            - textbox [ref=e30]: caliper-project
+        - paragraph [ref=e40]: Dry Run config must be valid JSON.
+      - complementary [ref=e31]:
+        - heading "Inspector" [level=2] [ref=e32]
+        - paragraph [ref=e33]: Select a detected box to inspect its properties.
+        - generic [ref=e34]:
+          - heading "Custom Regions" [level=3] [ref=e35]
+          - paragraph [ref=e37]: No custom regions yet.
+  - alert [ref=e38]

@@ -1,0 +1,52 @@
+{
+  "3a": {
+    "dropZoneVisible": true,
+    "navLinksVisible": true,
+    "pass": true
+  },
+  "3b": {
+    "authorInputCount": 2,
+    "parseResponseStatus": 422,
+    "parsePayloadStatus": "error",
+    "parsePayloadError": "caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)\nSet OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.",
+    "overlayCount": 0,
+    "noVisibleError": false,
+    "pass": false
+  },
+  "3c": {
+    "overlayClicked": false,
+    "inspectorInfoVisible": false,
+    "toleranceControlPresent": false,
+    "pass": false
+  },
+  "3d": {
+    "buttonFound": true,
+    "buttonEnabled": true,
+    "downloadTriggered": false,
+    "jsonVisible": false,
+    "pass": false
+  },
+  "3e": {
+    "fileInputs": 3,
+    "referenceTextVisible": true,
+    "iterationTextVisible": true,
+    "pass": true
+  },
+  "3f": {
+    "triageFileInputs": 3,
+    "jsonInputCount": 1,
+    "diffResponseStatus": 422,
+    "checkResponseStatus": 422,
+    "diffPayloadStatus": "error",
+    "checkPayloadStatus": "error",
+    "checkPayloadError": "caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)\nSet OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.",
+    "overlayCount": 0,
+    "failureListVisible": true,
+    "pass": false
+  },
+  "3g": {
+    "pageHasContent": true,
+    "hasCrash": false,
+    "pass": true
+  }
+}

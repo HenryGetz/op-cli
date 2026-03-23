@@ -1,0 +1,21 @@
+=== head -20 server/main.py ===
+from __future__ import annotations
+
+import base64
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+import uuid
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+
+def _resolve_caliper_bin() -> str:
+    explicit = os.environ.get("CALIPER_BIN")
+    if explicit:

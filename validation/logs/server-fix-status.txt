@@ -1,0 +1,18 @@
+GET /health -> 422
+POST /parse -> 422
+POST /baseline -> 422
+POST /check -> 422
+POST /diff -> 422
+POST /check (missing config) -> 422
+health error: caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+parse error: caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+baseline error: caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+check error: caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+diff error: caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.
+missing config error: caliper: unable to locate OmniParser runtime root (expected <root>/util/utils.py)
+Set OMNIPARSER_ROOT (or CALIPER_RUNTIME_ROOT) to your OmniParser install directory.

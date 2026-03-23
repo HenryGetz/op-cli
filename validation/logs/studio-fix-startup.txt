@@ -1,0 +1,4 @@
+=== studio startup ===
+pid=2857892
+studio_ready=1
+try 1 http=307

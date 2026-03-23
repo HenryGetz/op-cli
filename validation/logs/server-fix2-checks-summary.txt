@@ -1,0 +1,15 @@
+health_http=200
+parse_http=200
+baseline_http=200
+check_http=200
+diff_http=200
+check_missing_http=422
+health_status=success
+health_result=pass
+parse_status=success
+baseline_status=success
+baseline_assertions=124
+check_status=success
+check_result=pass
+diff_status=success
+missing_error=Config file required for this command. Provide --config <path> or create .caliper.json in this directory tree.

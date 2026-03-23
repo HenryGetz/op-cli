@@ -1,0 +1,89 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: Caliper Studio
+        - generic [ref=e6]: Visual QA Workbench
+      - generic [ref=e7]:
+        - link "Author" [ref=e8] [cursor=pointer]:
+          - /url: /author
+        - link "Triage" [ref=e9] [cursor=pointer]:
+          - /url: /triage
+        - link "History" [ref=e10] [cursor=pointer]:
+          - /url: /history
+  - main [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - heading "Authoring Mode" [level=1] [ref=e16]
+            - paragraph [ref=e17]: Drop a reference screenshot, inspect detected boxes, draw regions, and export baseline config.
+          - generic [ref=e18]:
+            - button "Draw Region" [ref=e19] [cursor=pointer]
+            - button "Generate Config" [ref=e20] [cursor=pointer]
+        - generic [ref=e22]:
+          - img "Reference screenshot" [ref=e39]
+          - 'button "Ready: Large Injection x Disarm" [ref=e40] [cursor=pointer]'
+          - button "Rise Time" [ref=e41] [cursor=pointer]
+          - button "0.5s" [ref=e42] [cursor=pointer]
+          - button "Last Injection." [ref=e43] [cursor=pointer]
+          - button "9.5" [ref=e44] [cursor=pointer]
+          - button "18.5" [ref=e45] [cursor=pointer]
+          - button "mL/s" [ref=e46] [cursor=pointer]
+          - button "mL" [ref=e47] [cursor=pointer]
+          - button "X-ray Sync" [ref=e48] [cursor=pointer]
+          - button "OFF" [ref=e49] [cursor=pointer]
+          - button "43" [ref=e50] [cursor=pointer]
+          - button "80." [ref=e51] [cursor=pointer]
+          - button "mL" [ref=e52] [cursor=pointer]
+          - button "Contrast to Patient." [ref=e53] [cursor=pointer]
+          - button "Contrast Available." [ref=e54] [cursor=pointer]
+          - button "51%" [ref=e55] [cursor=pointer]
+          - button "Auto refill at 30 mL." [ref=e56] [cursor=pointer]
+          - button "95 mL" [ref=e57] [cursor=pointer]
+          - button "REFILL" [ref=e58] [cursor=pointer]
+          - button "PURGE" [ref=e59] [cursor=pointer]
+          - button "Dr. Johnson" [ref=e60] [cursor=pointer]
+          - button "Volume (mL) 21.0" [ref=e61] [cursor=pointer]
+          - button "ACIST Pro'" [ref=e62] [cursor=pointer]
+          - button "LV/Aorta" [ref=e63] [cursor=pointer]
+          - button "Flow Rate (mL/s) 11.0" [ref=e64] [cursor=pointer]
+          - button "Cardiac v" [ref=e65] [cursor=pointer]
+          - button "LCA" [ref=e66] [cursor=pointer]
+          - button "RCA" [ref=e67] [cursor=pointer]
+          - button "Target Limit" [ref=e68] [cursor=pointer]
+          - button "A single oval shape." [ref=e69] [cursor=pointer]
+          - button "a horizontal bar or horizontal line." [ref=e70] [cursor=pointer]
+          - button "A simple motion blur or moving back or forth." [ref=e71] [cursor=pointer]
+          - button "A horizontal bar or horizontal line." [ref=e72] [cursor=pointer]
+          - button "A simple running or running application." [ref=e73] [cursor=pointer]
+          - button "A simple icon or logo." [ref=e74] [cursor=pointer]
+          - button "A simple design or logo." [ref=e75] [cursor=pointer]
+        - generic [ref=e26]:
+          - generic [ref=e27]: Dry Run (.caliper.json)
+          - generic [ref=e28]:
+            - generic [ref=e29]: "Project:"
+            - textbox [ref=e30]: caliper-project
+      - complementary [ref=e31]:
+        - heading "Inspector" [level=2] [ref=e32]
+        - generic [ref=e76]:
+          - generic [ref=e77]:
+            - paragraph [ref=e78]: Element
+            - paragraph [ref=e79]: "Ready: Large Injection x Disarm"
+          - generic [ref=e80]:
+            - generic [ref=e81]: "x: 105"
+            - generic [ref=e82]: "y: 96"
+            - generic [ref=e83]: "w: 492"
+            - generic [ref=e84]: "h: 32"
+          - generic [ref=e85]:
+            - text: Tolerance (5px)
+            - slider "Tolerance (5px)" [ref=e86]: "5"
+          - generic [ref=e87]:
+            - text: Assertion Type
+            - combobox "Assertion Type" [ref=e88]:
+              - option "region_dimension" [selected]
+              - option "measurement"
+        - generic [ref=e34]:
+          - heading "Custom Regions" [level=3] [ref=e35]
+          - paragraph [ref=e37]: No custom regions yet.
+  - alert [ref=e38]

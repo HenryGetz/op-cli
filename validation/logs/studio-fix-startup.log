@@ -1,0 +1,3 @@
+Studio already responding on :3008; reusing existing process.
+poll 1 http=200
+STUDIO_READY=1

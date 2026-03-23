@@ -1,0 +1,3 @@
+studio_pid=2956929
+studio_ready=1
+root_http_code=307

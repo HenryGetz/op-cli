@@ -1,0 +1,45 @@
+ GET / 307 in 53ms
+poll 1 http=307
+studio_ready=1
+ GET / 307 in 44ms
+ ⨯ Failed to start server
+Error: listen EADDRINUSE: address already in use :::3008
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at /home/wavy/ai/caliper-ui/studio/node_modules/next/dist/server/lib/start-server.js:280:16
+    at new Promise (<anonymous>)
+    at startServer (/home/wavy/ai/caliper-ui/studio/node_modules/next/dist/server/lib/start-server.js:191:11)
+    at /home/wavy/ai/caliper-ui/studio/node_modules/next/dist/server/lib/start-server.js:310:52
+    at Span.traceAsyncFn (/home/wavy/ai/caliper-ui/studio/node_modules/next/dist/trace/trace.js:154:26)
+    at process.<anonymous> (/home/wavy/ai/caliper-ui/studio/node_modules/next/dist/server/lib/start-server.js:310:35)
+    at process.emit (node:events:508:28) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '::',
+  port: 3008
+}
+[?25h
+ GET /author 200 in 50ms
+ GET / 307 in 51ms
+ GET /author 200 in 52ms
+ GET / 307 in 53ms
+ GET /author 200 in 32ms
+ GET /author 200 in 54ms
+ GET /author 200 in 47ms
+ GET /author 200 in 40ms
+ ○ Compiling /triage ...
+ ✓ Compiled /triage in 1003ms (504 modules)
+ GET /triage 200 in 1309ms
+ ✓ Compiled /history in 387ms (510 modules)
+ GET /history 200 in 491ms
+ ✓ Compiled / in 395ms (260 modules)
+ GET / 307 in 719ms
+ GET /author 200 in 54ms
+ GET / 307 in 33ms
+ GET /author 200 in 36ms
+ GET /author 200 in 47ms
+ GET /triage 200 in 60ms
+ ✓ Compiled /history in 372ms (256 modules)
+ GET /history 200 in 658ms

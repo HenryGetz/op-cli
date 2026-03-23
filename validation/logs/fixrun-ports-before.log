@@ -1,0 +1,6 @@
+== listeners 7771 ==
+COMMAND     PID USER   FD   TYPE    DEVICE SIZE/OFF NODE NAME
+python  2879105 wavy    6u  IPv4 800078767      0t0  TCP *:7771 (LISTEN)
+== ps for listener ==
+UID          PID    PPID  C STIME TTY          TIME CMD
+wavy     2879105       1  0 00:15 pts/29   00:00:03 /home/wavy/miniconda3/envs/omniparser_cpu/bin/python -m uvicorn server.main:app --host 0.0.0.0 --port 7771

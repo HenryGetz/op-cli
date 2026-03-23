@@ -1,0 +1,2 @@
+UID          PID    PPID  C STIME TTY          TIME CMD
+wavy     2816869       1  0 23:34 pts/29   00:00:05 /home/wavy/miniconda3/envs/omniparser_cpu/bin/python -m uvicorn server.main:app --host 0.0.0.0 --port 7771

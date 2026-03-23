@@ -1,0 +1,21 @@
+=== Fix Run 2 server restart with OMNIPARSER_ROOT + CALIPER_PYTHON ===
+2026-03-23T03:38:33Z
+poll_1=000
+poll_2=000
+INFO:     Started server process [3070386]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:7771 (Press CTRL+C to quit)
+INFO:     127.0.0.1:36044 - "GET /health HTTP/1.1" 200 OK
+poll_3=200
+SERVER_READY=1
+INFO:     127.0.0.1:40996 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43782 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43798 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43810 - "POST /check HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43822 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43824 - "POST /check HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:34598 - "POST /parse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34598 - "POST /baseline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34598 - "POST /diff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34832 - "POST /check HTTP/1.1" 200 OK

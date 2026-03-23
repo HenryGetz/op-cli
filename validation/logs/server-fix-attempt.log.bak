@@ -1,0 +1,160 @@
+=== head -20 server/main.py ===
+from __future__ import annotations
+
+import base64
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+import uuid
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+
+def _resolve_caliper_bin() -> str:
+    explicit = os.environ.get("CALIPER_BIN")
+    if explicit:
+Killing existing server PIDs: 2950330 
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2950330]
+=== attempt 1: uvicorn server.main:app from repo root ===
+attempt1 poll 1 http=000
+attempt1 poll 2 http=000
+INFO:     Started server process [2954985]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:7771 (Press CTRL+C to quit)
+INFO:     127.0.0.1:40108 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 3 http=422
+INFO:     127.0.0.1:40122 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 4 http=422
+INFO:     127.0.0.1:40132 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 5 http=422
+INFO:     127.0.0.1:40142 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 6 http=422
+INFO:     127.0.0.1:40156 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 7 http=422
+INFO:     127.0.0.1:40172 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 8 http=422
+INFO:     127.0.0.1:42794 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 9 http=422
+INFO:     127.0.0.1:42802 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 10 http=422
+INFO:     127.0.0.1:42810 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 11 http=422
+INFO:     127.0.0.1:42826 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 12 http=422
+INFO:     127.0.0.1:42836 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 13 http=422
+INFO:     127.0.0.1:42850 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 14 http=422
+INFO:     127.0.0.1:42852 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 15 http=422
+INFO:     127.0.0.1:42864 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 16 http=422
+INFO:     127.0.0.1:42880 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 17 http=422
+INFO:     127.0.0.1:42884 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 18 http=422
+INFO:     127.0.0.1:40652 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 19 http=422
+INFO:     127.0.0.1:40664 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 20 http=422
+INFO:     127.0.0.1:40678 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 21 http=422
+INFO:     127.0.0.1:40680 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 22 http=422
+INFO:     127.0.0.1:40686 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 23 http=422
+INFO:     127.0.0.1:40698 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 24 http=422
+INFO:     127.0.0.1:40708 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 25 http=422
+INFO:     127.0.0.1:40718 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 26 http=422
+INFO:     127.0.0.1:40734 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 27 http=422
+INFO:     127.0.0.1:60714 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 28 http=422
+INFO:     127.0.0.1:60718 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 29 http=422
+INFO:     127.0.0.1:60722 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt1 poll 30 http=422
+attempt1 did not reach HTTP 200; stopping attempt1 process
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2954985]
+=== attempt 2: uvicorn main:app from server/ ===
+attempt2 poll 1 http=000
+attempt2 poll 2 http=000
+INFO:     Started server process [2955715]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:7771 (Press CTRL+C to quit)
+INFO:     127.0.0.1:60754 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 3 http=422
+INFO:     127.0.0.1:60760 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 4 http=422
+INFO:     127.0.0.1:60774 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 5 http=422
+INFO:     127.0.0.1:60790 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 6 http=422
+INFO:     127.0.0.1:37524 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 7 http=422
+INFO:     127.0.0.1:37540 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 8 http=422
+INFO:     127.0.0.1:37548 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 9 http=422
+INFO:     127.0.0.1:37564 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 10 http=422
+INFO:     127.0.0.1:37574 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 11 http=422
+INFO:     127.0.0.1:37586 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 12 http=422
+INFO:     127.0.0.1:37596 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 13 http=422
+INFO:     127.0.0.1:37600 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 14 http=422
+INFO:     127.0.0.1:37612 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 15 http=422
+INFO:     127.0.0.1:37628 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 16 http=422
+INFO:     127.0.0.1:47750 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 17 http=422
+INFO:     127.0.0.1:47758 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 18 http=422
+INFO:     127.0.0.1:47760 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 19 http=422
+INFO:     127.0.0.1:47768 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 20 http=422
+INFO:     127.0.0.1:47782 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 21 http=422
+INFO:     127.0.0.1:47790 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 22 http=422
+INFO:     127.0.0.1:47806 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 23 http=422
+INFO:     127.0.0.1:47818 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 24 http=422
+INFO:     127.0.0.1:47834 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 25 http=422
+INFO:     127.0.0.1:40896 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 26 http=422
+INFO:     127.0.0.1:40906 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 27 http=422
+INFO:     127.0.0.1:40914 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 28 http=422
+INFO:     127.0.0.1:40928 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 29 http=422
+INFO:     127.0.0.1:40938 - "GET /health HTTP/1.1" 422 Unprocessable Entity
+attempt2 poll 30 http=422
+attempt1_ready=0
+attempt2_ready=0
+listening_pid=2955715 
